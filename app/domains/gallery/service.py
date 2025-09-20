@@ -1,8 +1,10 @@
+import json
 from typing import List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.domains.auth.models import UserType
 from app.domains.gallery import models, schemas
 
 
@@ -10,15 +12,54 @@ class GalleryService:
     def __init__(self, db: Session):
         self.db = db
 
+    def _serialize_file_urls(self, file_urls: Optional[List[str]]) -> Optional[str]:
+        """Convert list of URLs to JSON string"""
+        if file_urls is None:
+            return None
+        return json.dumps(file_urls)
+
+    def _deserialize_file_urls(
+        self, file_urls_json: Optional[str]
+    ) -> Optional[List[str]]:
+        """Convert JSON string to list of URLs"""
+        if file_urls_json is None:
+            return None
+        try:
+            return json.loads(file_urls_json)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
     def create_gallery(
-        self, payload: schemas.GalleryCreate, owner_wallet_address: str
+        self, payload: schemas.GalleryCreate, wallet_address: str, user_type: UserType
     ) -> models.Gallery:
+        # Only GALLERY type can create gallery profile
+        if user_type != UserType.GALLERY:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only GALLERY type can create gallery profile",
+            )
+
+        # Check if gallery profile already exists
+        existing_gallery = (
+            self.db.query(models.Gallery)
+            .filter(models.Gallery.wallet_address == wallet_address)
+            .first()
+        )
+
+        if existing_gallery:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Gallery profile already exists",
+            )
+
         gallery = models.Gallery(
+            wallet_address=wallet_address,
             name=payload.name,
-            phone=payload.phone,
-            location=payload.location,
+            email=payload.email,
             description=payload.description,
-            owner_wallet_address=owner_wallet_address,
+            website=payload.website,
+            profile_image=payload.profile_image,
+            file_urls=self._serialize_file_urls(payload.file_urls),
         )
         self.db.add(gallery)
         self.db.commit()
@@ -29,6 +70,13 @@ class GalleryService:
         return (
             self.db.query(models.Gallery)
             .filter(models.Gallery.id == gallery_id)
+            .first()
+        )
+
+    def get_gallery_by_wallet(self, wallet_address: str) -> Optional[models.Gallery]:
+        return (
+            self.db.query(models.Gallery)
+            .filter(models.Gallery.wallet_address == wallet_address)
             .first()
         )
 
@@ -52,7 +100,7 @@ class GalleryService:
             return None
 
         # Check if current user is the owner
-        if gallery.owner_wallet_address != current_wallet_address:
+        if gallery.wallet_address != current_wallet_address:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only gallery owner can update this gallery",
@@ -61,7 +109,11 @@ class GalleryService:
         # Apply only provided fields
         update_data = payload.model_dump(exclude_unset=True)
         for field, value in update_data.items():
-            setattr(gallery, field, value)
+            if field == "file_urls":
+                # Serialize file URLs to JSON
+                setattr(gallery, field, self._serialize_file_urls(value))
+            else:
+                setattr(gallery, field, value)
         self.db.add(gallery)
         self.db.commit()
         self.db.refresh(gallery)
@@ -73,7 +125,7 @@ class GalleryService:
             return False
 
         # Check if current user is the owner
-        if gallery.owner_wallet_address != current_wallet_address:
+        if gallery.wallet_address != current_wallet_address:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only gallery owner can delete this gallery",

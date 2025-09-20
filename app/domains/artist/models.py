@@ -1,12 +1,12 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.shared.database.connection import Base
 
 
-class Gallery(Base):
-    __tablename__ = "galleries"
+class Artist(Base):
+    __tablename__ = "artists"
 
     id = Column(Integer, primary_key=True, index=True)
     wallet_address = Column(
@@ -16,16 +16,13 @@ class Gallery(Base):
         nullable=False,
         index=True,
     )
-    name = Column(String(100), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
     email = Column(String(255), nullable=True)
-    description = Column(Text, nullable=True)
-    website = Column(String(500), nullable=True)
     profile_image = Column(String(500), nullable=True)
-    file_urls = Column(Text, nullable=True)  # JSON array stored as text
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    # 1:1 relationship with WalletAuth (only for GALLERY type)
-    wallet_auth = relationship("WalletAuth", back_populates="gallery")
+    # 1:1 relationship with WalletAuth
+    wallet_auth = relationship("WalletAuth", back_populates="artist")

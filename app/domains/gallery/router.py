@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.domains.auth.models import UserType, WalletAuth
+from app.domains.auth.models import WalletAuth
 from app.domains.auth.router import get_current_wallet_auth
 from app.domains.gallery import schemas
 from app.domains.gallery.service import GalleryService
@@ -20,16 +20,11 @@ def create_gallery(
     current_wallet: WalletAuth = Depends(get_current_wallet_auth),
     db: Session = Depends(get_db),
 ):
-    # Only GALLERY users can create galleries
-    if current_wallet.user_type != UserType.GALLERY:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only GALLERY users can create galleries",
-        )
-
     service = GalleryService(db)
     gallery = service.create_gallery(
-        payload, owner_wallet_address=current_wallet.wallet_address
+        payload,
+        wallet_address=current_wallet.wallet_address,
+        user_type=current_wallet.user_type,
     )
     return gallery
 
@@ -42,6 +37,26 @@ def list_galleries(
 ):
     service = GalleryService(db)
     return service.list_galleries(skip=skip, limit=limit)
+
+
+@router.get("/me", response_model=schemas.GalleryResponse)
+def get_my_gallery_profile(
+    current_wallet: WalletAuth = Depends(get_current_wallet_auth),
+    db: Session = Depends(get_db),
+):
+    """
+    Get current user's gallery profile
+
+    **Possible errors:**
+    - 404: Gallery profile not found
+    """
+    service = GalleryService(db)
+    gallery = service.get_gallery_by_wallet(current_wallet.wallet_address)
+    if not gallery:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gallery profile not found"
+        )
+    return gallery
 
 
 @router.get("/{gallery_id}", response_model=schemas.GalleryResponse)

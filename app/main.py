@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 # Import models for table creation
 from app.core import models  # noqa: F401
 from app.core.config import settings
+from app.domains.artist.router import router as artist_router
 from app.domains.auth.router import router as auth_router
 from app.domains.gallery.router import router as gallery_router
 from app.shared.database.connection import Base, engine, get_db
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     application.include_router(auth_router, prefix="/api/v1")
+    application.include_router(artist_router, prefix="/api/v1")
     application.include_router(gallery_router, prefix="/api/v1")
 
     @application.get("/")
