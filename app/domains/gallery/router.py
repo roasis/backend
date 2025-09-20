@@ -38,7 +38,6 @@ def create_gallery(
 def list_galleries(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
-    current_wallet: WalletAuth = Depends(get_current_wallet_auth),
     db: Session = Depends(get_db),
 ):
     service = GalleryService(db)
@@ -48,7 +47,6 @@ def list_galleries(
 @router.get("/{gallery_id}", response_model=schemas.GalleryResponse)
 def get_gallery(
     gallery_id: int,
-    current_wallet: WalletAuth = Depends(get_current_wallet_auth),
     db: Session = Depends(get_db),
 ):
     service = GalleryService(db)
