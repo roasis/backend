@@ -16,6 +16,7 @@ class ArtworkResponse(BaseModel):
     metadata_uri_base: str = Field(..., description="Base URI for metadata (e.g., ipfs://cid/meta.json)")
     artist_address: str = Field(..., description="Artist's XRPL wallet address")
     created_at: datetime = Field(..., description="Creation timestamp")
+    nfts: Optional[list] = Field(None, description="List of associated NFTs")
 
     class Config:
         from_attributes = True
