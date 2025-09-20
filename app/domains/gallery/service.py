@@ -6,11 +6,13 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.schemas import GalleryProfileRequest
 from app.domains.gallery import models, schemas
+from app.shared.xrpl import XRPLService
 
 
 class GalleryService:
     def __init__(self, db: Session):
         self.db = db
+        self.xrpl_service = XRPLService()
 
     def _serialize_file_urls(self, file_urls: Optional[List[str]]) -> Optional[str]:
         """Convert list of URLs to JSON string"""
@@ -29,6 +31,15 @@ class GalleryService:
         except (json.JSONDecodeError, TypeError):
             return None
 
+    def _create_xrpl_domain(self, gallery_name: str) -> str | None:
+        """Create XRPL permissioned domain for gallery"""
+        try:
+            domain_name = f"{gallery_name.lower().replace(' ', '-')}.roasis.art"
+            return self.xrpl_service.create_domain(domain_name)
+        except Exception as e:
+            print(f"Failed to create XRPL domain: {e}")
+            return None
+
     def create_gallery(
         self, payload: GalleryProfileRequest, wallet_address: str
     ) -> models.Gallery:
@@ -45,6 +56,14 @@ class GalleryService:
                 detail="Gallery profile already exists",
             )
 
+        # Create XRPL domain for gallery
+        domain_id = self._create_xrpl_domain(payload.name)
+        if domain_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create XRPL domain for gallery",
+            )
+
         gallery = models.Gallery(
             wallet_address=wallet_address,
             name=payload.name,
@@ -53,6 +72,7 @@ class GalleryService:
             website=payload.website,
             profile_image_url=payload.profile_image_url,
             file_urls=self._serialize_file_urls(payload.file_urls),
+            domain_id=domain_id,
         )
         self.db.add(gallery)
         self.db.commit()

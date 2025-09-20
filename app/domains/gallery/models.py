@@ -22,6 +22,9 @@ class Gallery(Base):
     website = Column(String(500), nullable=True)
     profile_image_url = Column(String(500), nullable=True)
     file_urls = Column(Text, nullable=True)  # JSON array stored as text
+    domain_id = Column(
+        String(100), nullable=True, unique=True, index=True
+    )  # XRPL domain ID
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
