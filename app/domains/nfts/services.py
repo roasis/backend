@@ -78,18 +78,19 @@ def _extract_offer_index(tx_result: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _create_zero_amount_gift_offer(
+def _create_nft_offer(
     client: JsonRpcClient,
     wallet: Wallet,
     nftoken_id: str,
     destination: str,
+    price_drops: str,
 ) -> Dict[str, Any]:
-    logging.info(f"Creating zero-amount gift offer: nftoken_id={nftoken_id}, destination={destination}")
+    logging.info(f"Creating NFT offer: nftoken_id={nftoken_id}, destination={destination}, price={price_drops} drops")
 
     offer_tx = NFTokenCreateOffer(
         account=wallet.classic_address,
         nftoken_id=nftoken_id,
-        amount="0",               # 0 drop = 선물
+        amount=price_drops,       # 실제 가격 (drops)
         destination=destination,  # 작가 지갑 주소
         flags=1,                  # tfSellNFToken
     )
@@ -267,11 +268,18 @@ def _sync_xrpl_single_offer(
 
     try:
         logging.info(f"Creating single offer for NFT {nft.id}")
-        res = _create_zero_amount_gift_offer(
+        # Convert USD price to XRP drops (1 XRP = 1,000,000 drops)
+        # For simplicity, using 1 USD = 2 XRP rate (adjustable)
+        usd_to_xrp_rate = 2.0  # 1 USD = 2 XRP
+        price_xrp = nft.price * usd_to_xrp_rate
+        price_drops = str(int(price_xrp * 1_000_000))  # Convert to drops
+
+        res = _create_nft_offer(
             client=client,
             wallet=wallet,
             nftoken_id=nft.nftoken_id,
             destination=artist_address,
+            price_drops=price_drops,
         )
 
         oid = _extract_offer_index(res)
@@ -283,7 +291,8 @@ def _sync_xrpl_single_offer(
             "gift_offer_id": oid,
             "gift_offer_tx_hash": res.get("hash"),
             "gift_offer_destination": artist_address,
-            "gift_offer_amount": "0",
+            "gift_offer_amount": price_drops,
+            "gift_offer_price_usd": nft.price,
         })
         nft.status = "offered_to_artist"
         nft.extra = extra
@@ -354,10 +363,15 @@ def _sync_xrpl_multi_offer(
     nft_data = []
 
     for r in rows:
+        # Convert USD price to XRP drops
+        usd_to_xrp_rate = 2.0  # 1 USD = 2 XRP
+        price_xrp = r.price * usd_to_xrp_rate
+        price_drops = str(int(price_xrp * 1_000_000))  # Convert to drops
+
         offer_tx = NFTokenCreateOffer(
             account=classic,
             nftoken_id=r.nftoken_id,
-            amount="0",               # 0 drop = 선물
+            amount=price_drops,       # 실제 가격 (drops)
             destination=artist_address,  # 작가 지갑 주소
             flags=1,                  # tfSellNFToken
         )
@@ -367,6 +381,8 @@ def _sync_xrpl_multi_offer(
             "nft_id": r.id,
             "nftoken_id": r.nftoken_id,
             "nft_record": r,
+            "price_drops": price_drops,
+            "price_usd": r.price,
         })
 
     # Process transactions in chunks of 4 (XRPL batch limit)
@@ -417,7 +433,8 @@ def _sync_xrpl_multi_offer(
                         "gift_offer_id": offer_id,
                         "gift_offer_tx_hash": tx_hash,
                         "gift_offer_destination": artist_address,
-                        "gift_offer_amount": "0",
+                        "gift_offer_amount": single_nft_data["price_drops"],
+                        "gift_offer_price_usd": single_nft_data["price_usd"],
                     })
                     nft_record.status = "offered_to_artist"
                     nft_record.extra = extra
@@ -475,7 +492,8 @@ def _sync_xrpl_multi_offer(
                             "gift_offer_id": None,  # Not available in batch response
                             "gift_offer_tx_hash": batch_hash,
                             "gift_offer_destination": artist_address,
-                            "gift_offer_amount": "0",
+                            "gift_offer_amount": nft_info["price_drops"],
+                            "gift_offer_price_usd": nft_info["price_usd"],
                             "batch_offer": True,
                             "batch_chunk": chunk_num,
                         })
