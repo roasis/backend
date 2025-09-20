@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.domains.auth import models, schemas
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 240
 
 
 class XRPLAuthService:
