@@ -82,16 +82,15 @@ def _create_nft_offer(
     client: JsonRpcClient,
     wallet: Wallet,
     nftoken_id: str,
-    destination: str,
     price_drops: str,
 ) -> Dict[str, Any]:
-    logging.info(f"Creating NFT offer: nftoken_id={nftoken_id}, destination={destination}, price={price_drops} drops")
+    logging.info(f"Creating public NFT offer: nftoken_id={nftoken_id}, price={price_drops} drops")
 
     offer_tx = NFTokenCreateOffer(
         account=wallet.classic_address,
         nftoken_id=nftoken_id,
         amount=price_drops,       # 실제 가격 (drops)
-        destination=destination,  # 작가 지갑 주소
+        # destination removed - public offer anyone can accept
         flags=1,                  # tfSellNFToken
     )
 
@@ -220,7 +219,6 @@ def _sync_xrpl_single_offer(
     db: Session,
     *,
     artwork_id: int,
-    artist_address: str,
 ) -> Dict[str, Any]:
     """단일 NFT 오퍼 생성 함수"""
     logging.info(f"Starting single offer creation for artwork_id={artwork_id}")
@@ -278,7 +276,6 @@ def _sync_xrpl_single_offer(
             client=client,
             wallet=wallet,
             nftoken_id=nft.nftoken_id,
-            destination=artist_address,
             price_drops=price_drops,
         )
 
@@ -290,9 +287,9 @@ def _sync_xrpl_single_offer(
         extra.update({
             "gift_offer_id": oid,
             "gift_offer_tx_hash": res.get("hash"),
-            "gift_offer_destination": artist_address,
             "gift_offer_amount": price_drops,
             "gift_offer_price_usd": nft.price,
+            "gift_offer_type": "public",  # Public offer anyone can accept
         })
         nft.status = "offered_to_artist"
         nft.extra = extra
@@ -324,9 +321,9 @@ def _sync_xrpl_multi_offer(
     db: Session,
     *,
     artwork_id: int,
-    artist_address: str,
 ) -> Dict[str, Any]:
     """다중 NFT 배치 오퍼 생성 함수"""
+    print(f"🚀 MULTI OFFER START: artwork_id={artwork_id}")
     logging.info(f"Starting batch offer creation for artwork_id={artwork_id}")
 
     client = _xrpl_client()
@@ -335,6 +332,8 @@ def _sync_xrpl_multi_offer(
         raise RuntimeError("platform_seed is not configured")
     wallet = Wallet.from_seed(seed)
     classic = wallet.classic_address
+
+    print(f"💰 PLATFORM WALLET: {classic}")
 
     # 이 작품의 '플랫폼이 보유 중'인 NFT 목록 로드 (오퍼가 없는 것만)
     rows: List[NFT] = (
@@ -346,9 +345,15 @@ def _sync_xrpl_multi_offer(
         .all()
     )
 
+    print("📊 MULTI OFFER NFT COUNT: {len(rows)}")
     logging.info(f"Found {len(rows)} NFTs to process for batch offers")
 
+    print("🔍 MULTI OFFER NFTS FOUND:")
+    for i, nft in enumerate(rows):
+        print(f"  NFT {i+1}: id={nft.id}, nftoken_id={nft.nftoken_id}, status={nft.status}, price=${nft.price}")
+
     if not rows:
+        print("❌ NO NFTS FOUND FOR MULTI OFFER!")
         return {
             "offers_created": 0,
             "offers_total_considered": 0,
@@ -362,19 +367,24 @@ def _sync_xrpl_multi_offer(
     raw_transactions = []
     nft_data = []
 
+    print("💰 PREPARING OFFER TRANSACTIONS...")
     for r in rows:
         # Convert USD price to XRP drops
         usd_to_xrp_rate = 2.0  # 1 USD = 2 XRP
         price_xrp = r.price * usd_to_xrp_rate
         price_drops = str(int(price_xrp * 1_000_000))  # Convert to drops
 
+        print(f"  NFT {r.id}: ${r.price} USD -> {price_xrp} XRP -> {price_drops} drops")
+
         offer_tx = NFTokenCreateOffer(
             account=classic,
             nftoken_id=r.nftoken_id,
             amount=price_drops,       # 실제 가격 (drops)
-            destination=artist_address,  # 작가 지갑 주소
+            # destination removed - public offer anyone can accept
             flags=1,                  # tfSellNFToken
         )
+
+        print(f"  Created offer tx for NFT {r.id}: {offer_tx}")
 
         raw_transactions.append(offer_tx)
         nft_data.append({
@@ -388,6 +398,8 @@ def _sync_xrpl_multi_offer(
     # Process transactions in chunks of 4 (XRPL batch limit)
     BATCH_SIZE = 4
 
+    print(f"📦 TOTAL OFFER TRANSACTIONS: {len(raw_transactions)}")
+    print(f"📦 PROCESSING IN CHUNKS OF: {BATCH_SIZE}")
     logging.info(f"Total offer transactions to process: {len(raw_transactions)}")
     logging.info(f"Processing in chunks of {BATCH_SIZE}")
 
@@ -403,24 +415,37 @@ def _sync_xrpl_multi_offer(
         chunk_nft_data = nft_data[chunk_idx:chunk_idx + BATCH_SIZE]
         chunk_num = (chunk_idx // BATCH_SIZE) + 1
 
+        print(f"🔄 PROCESSING CHUNK {chunk_num}: {len(chunk_transactions)} transactions")
         logging.info(f"Processing offer chunk {chunk_num} with {len(chunk_transactions)} transactions")
 
         if len(chunk_transactions) == 1:
             # Process single transaction individually
+            print(f"🎯 SINGLE TRANSACTION MODE for chunk {chunk_num}")
             try:
+                print(f"🚀 Processing single offer in chunk {chunk_num}...")
                 logging.info(f"Processing single offer in chunk {chunk_num}...")
 
                 single_tx = chunk_transactions[0]
                 single_nft_data = chunk_nft_data[0]
 
+                print(f"📋 Single TX details: nftoken_id={single_nft_data['nftoken_id']}, price_drops={single_nft_data['price_drops']}")
+
                 # Submit individual transaction
+                print("⚙️ Autofilling single transaction...")
                 tx_autofilled = autofill(single_tx, client)
+                print("✍️ Signing single transaction...")
                 tx_signed = sign(tx_autofilled, wallet)
+                print("📡 Submitting single transaction and waiting...")
                 tx_resp = submit_and_wait(tx_signed, client)
+
+                print(f"✅ Single TX response: success={tx_resp.is_successful()}")
+                print(f"📄 FULL SINGLE TX RESPONSE: {tx_resp.result}")
 
                 if tx_resp.is_successful():
                     tx_hash = tx_resp.result.get("hash")
                     offer_id = _extract_offer_index(tx_resp.result)
+
+                    print(f"🎉 Single offer SUCCESS: tx_hash={tx_hash}, offer_id={offer_id}")
 
                     all_tx_hashes.append(tx_hash)
                     all_offer_ids.append(offer_id)
@@ -432,55 +457,71 @@ def _sync_xrpl_multi_offer(
                     extra.update({
                         "gift_offer_id": offer_id,
                         "gift_offer_tx_hash": tx_hash,
-                        "gift_offer_destination": artist_address,
                         "gift_offer_amount": single_nft_data["price_drops"],
                         "gift_offer_price_usd": single_nft_data["price_usd"],
+                        "gift_offer_type": "public",  # Public offer anyone can accept
                     })
                     nft_record.status = "offered_to_artist"
                     nft_record.extra = extra
                     db.add(nft_record)
+                    print("💾 Committing single offer DB update...")
                     db.commit()
+                    print("✅ Single offer DB update committed!")
 
                     logging.info(f"Single offer successful: offer_id={offer_id}")
                 else:
+                    print(f"❌ Single offer FAILED: {tx_resp.result}")
                     logging.error(f"Single offer failed: {tx_resp.result}")
                     all_errors.append(f"Single offer failed: {tx_resp.result}")
                     all_tx_hashes.append(None)
                     all_offer_ids.append(None)
 
             except Exception as e:
+                print(f"💥 ERROR in single offer: {str(e)}")
                 logging.error(f"Error in single offer: {str(e)}")
                 all_errors.append(f"Single offer error: {str(e)}")
                 all_tx_hashes.append(None)
                 all_offer_ids.append(None)
         else:
             # Process as batch transaction (2 or more transactions)
+            print(f"📦 BATCH TRANSACTION MODE for chunk {chunk_num} ({len(chunk_transactions)} transactions)")
             from xrpl.models.transactions import Batch
 
             try:
+                print(f"🚀 Submitting offer batch chunk {chunk_num}...")
                 logging.info(f"Submitting offer batch chunk {chunk_num}...")
 
                 # Create batch transaction for this chunk
+                print("📦 Creating batch transaction...")
                 batch_tx = Batch(
                     account=classic,
                     raw_transactions=chunk_transactions,
                     flags=65536,  # tfSpike flag for batch transaction
                 )
+                print(f"📦 Batch TX created: {batch_tx}")
 
                 # Submit batch transaction
+                print("⚙️ Autofilling batch transaction...")
                 batch_autofilled = autofill(batch_tx, client)
+                print("✍️ Signing batch transaction...")
                 batch_signed = sign(batch_autofilled, wallet)
+                print("📡 Submitting batch transaction and waiting...")
                 batch_resp = submit_and_wait(batch_signed, client)
 
+                print(f"✅ Batch response: success={batch_resp.is_successful()}")
+                print(f"📄 FULL BATCH RESPONSE: {batch_resp.result}")
                 logging.info(f"Offer batch chunk {chunk_num} response: success={batch_resp.is_successful()}")
 
                 if batch_resp.is_successful():
                     batch_hash = batch_resp.result.get("hash")
+                    print(f"🎉 Batch offer SUCCESS: batch_hash={batch_hash}")
                     logging.info(f"Offer batch chunk {chunk_num} successful with hash: {batch_hash}")
 
                     # For batch offers, we can't extract individual offer IDs reliably
                     # So we'll store None for offer_id and use batch_hash
+                    print(f"💾 Updating {len(chunk_nft_data)} NFT records for batch...")
                     for i, nft_info in enumerate(chunk_nft_data):
+                        print(f"  Updating NFT {i+1}/{len(chunk_nft_data)}: id={nft_info['nft_id']}")
                         all_tx_hashes.append(batch_hash)
                         all_offer_ids.append(None)  # Batch doesn't expose individual offer IDs
                         total_created += 1
@@ -491,9 +532,9 @@ def _sync_xrpl_multi_offer(
                         extra.update({
                             "gift_offer_id": None,  # Not available in batch response
                             "gift_offer_tx_hash": batch_hash,
-                            "gift_offer_destination": artist_address,
                             "gift_offer_amount": nft_info["price_drops"],
                             "gift_offer_price_usd": nft_info["price_usd"],
+                            "gift_offer_type": "public",  # Public offer anyone can accept
                             "batch_offer": True,
                             "batch_chunk": chunk_num,
                         })
@@ -501,9 +542,12 @@ def _sync_xrpl_multi_offer(
                         nft_record.extra = extra
                         db.add(nft_record)
 
+                    print("💾 Committing batch offer DB updates...")
                     db.commit()
+                    print("✅ Batch offer DB updates committed!")
                     logging.info(f"Successfully processed offer batch chunk {chunk_num}")
                 else:
+                    print(f"❌ Batch offer FAILED: {batch_resp.result}")
                     logging.error(f"Offer batch chunk {chunk_num} failed: {batch_resp.result}")
                     all_errors.append(f"Batch chunk {chunk_num} failed: {batch_resp.result}")
 
@@ -513,6 +557,7 @@ def _sync_xrpl_multi_offer(
                         all_offer_ids.append(None)
 
             except Exception as e:
+                print(f"💥 ERROR in batch chunk {chunk_num}: {str(e)}")
                 logging.error(f"Error in offer batch chunk {chunk_num}: {str(e)}")
                 all_errors.append(f"Batch chunk {chunk_num} error: {str(e)}")
 
@@ -521,9 +566,21 @@ def _sync_xrpl_multi_offer(
                     all_tx_hashes.append(None)
                     all_offer_ids.append(None)
 
+    print("🏁 MULTI OFFER COMPLETE!")
+    print("📊 FINAL RESULTS:")
+    print("  Total NFTs considered: {len(rows)}")
+    print("  Offers created: {total_created}")
+    print("  Total errors: {len(all_errors)}")
+    print("  Offer IDs: {all_offer_ids}")
+    print("  TX Hashes: {all_tx_hashes}")
+    if all_errors:
+        print("❌ ERRORS:")
+        for i, error in enumerate(all_errors):
+            print(f"  Error {i+1}: {error}")
+
     logging.info(f"Batch offer processing complete. Total created: {total_created}, Total errors: {len(all_errors)}")
 
-    return {
+    final_result = {
         "offers_created": total_created,
         "offers_total_considered": len(rows),
         "offer_ids": all_offer_ids,
@@ -531,6 +588,10 @@ def _sync_xrpl_multi_offer(
         "failed": len(all_errors),
         "errors": all_errors,
     }
+
+    print(f"🎯 RETURNING RESULT: {final_result}")
+
+    return final_result
 
 
 def _sync_xrpl_batch_offer(
@@ -606,7 +667,6 @@ def _sync_xrpl_batch_offer(
         result = _sync_xrpl_multi_offer(
             db=db,
             artwork_id=artwork_id,
-            artist_address=artist_address,
         )
         print(f"✅ MULTI OFFER RESULT: {result}")
         return result
