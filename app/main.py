@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from app.core import models  # noqa: F401
 from app.core.config import settings
 from app.domains.auth.router import router as auth_router
-from app.domains.users.router import router as users_router
 from app.shared.database.connection import Base, engine, get_db
 
 # Create database tables
@@ -20,7 +19,6 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    application.include_router(users_router, prefix="/api/v1")
     application.include_router(auth_router, prefix="/api/v1")
 
     @application.get("/")
