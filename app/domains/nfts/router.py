@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
+import logging
 
 from app.shared.database.connection import get_db
+from app.domains.auth.models import UserType, WalletAuth
+from app.domains.auth.router import get_current_wallet_auth
 
 from .schemas import RegisterMintOut, VerifyIn, VerifyOut
 from .services import register_to_ipfs_and_mint, verify_tx
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/nfts", tags=["NFTs"])
 
@@ -25,6 +29,7 @@ def ping():
 
 @router.post("/artworks/register-mint", response_model=RegisterMintOut)
 async def register_and_mint(
+    current_wallet: WalletAuth = Depends(get_current_wallet_auth),
     db: Session = Depends(get_db),
     # 파일
     image: UploadFile = File(..., description="작품 이미지 파일 (png/jpg)"),
@@ -44,6 +49,32 @@ async def register_and_mint(
     taxon: int = Form(0),
 ):
     try:
+
+        # 1. 작가 권한 확인
+        if current_wallet.user_type != UserType.USER:
+            logger.warning(f"Non-artist user {current_wallet.wallet_address} attempted to mint")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "ARTIST_ONLY",
+                    "message": "Only artists (USER type) can mint artworks.",
+                    "user_type": current_wallet.user_type.value
+                }
+            )
+
+        # 2. 활성 계정 확인
+        if not current_wallet.is_active:
+            logger.warning(f"Inactive user {current_wallet.wallet_address} attempted to mint")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "ACCOUNT_INACTIVE",
+                    "message": "Your account is inactive. Please contact support."
+                }
+            )
+
+        # wallet_address = "rnx6G9kHEoyq12rwSQc6t5zgJ22dxFpndW"
+
         image_bytes = await image.read()
         result = await register_to_ipfs_and_mint(
             db,
@@ -56,7 +87,8 @@ async def register_and_mint(
             medium=medium,
             price_usd=price_usd,
             grid_n=grid_n,
-            artist_address=artist_address,
+            artist_address=current_wallet.wallet_address,
+            # artist_address=wallet_address,
             flags=flags,
             transfer_fee=transfer_fee,
             taxon=taxon,
