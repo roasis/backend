@@ -1,5 +1,4 @@
 from typing import Optional
-
 import xrpl
 from fastapi import HTTPException
 from starlette import status
@@ -7,8 +6,10 @@ from xrpl.clients import JsonRpcClient
 from xrpl.models import PermissionedDomainSet
 from xrpl.models.transactions.deposit_preauth import Credential
 from xrpl.wallet import Wallet
-
 from app.core.config import settings
+
+
+DEVNET_URL = getattr(settings, "xrpl_rpc_url", "https://s.devnet.rippletest.net:51234")
 
 
 class XRPLService:

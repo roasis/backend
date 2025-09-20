@@ -26,3 +26,8 @@ class VerifyIn(BaseModel):
 class VerifyOut(BaseModel):
     validated: bool
     tx_json: Dict[str, Any] | None = None
+
+
+class BrokerRequest(BaseModel):
+    sell_offer_id: str
+    buy_offer_id: str

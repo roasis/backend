@@ -8,6 +8,11 @@ from app.domains.auth.router import get_current_wallet_auth
 
 from .schemas import RegisterMintOut, VerifyIn, VerifyOut
 from .services import register_to_ipfs_and_mint, verify_tx
+
+from fastapi.security import HTTPBearer
+
+security = HTTPBearer()
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/nfts", tags=["NFTs"])
