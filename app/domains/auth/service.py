@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.domains.auth import models, schemas
-from app.domains.auth.schemas import GalleryWalletRegisterRequest
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 240
@@ -56,7 +55,7 @@ class XRPLAuthService:
         return token_data
 
     def register_wallet(
-        self, register_request: GalleryWalletRegisterRequest
+        self, register_request, user_type: models.UserType
     ) -> schemas.JwtResponse:
         """
         Register a new wallet and return access token
@@ -78,7 +77,7 @@ class XRPLAuthService:
         # Create new wallet auth record
         wallet_auth = models.WalletAuth(
             wallet_address=register_request.wallet_address,
-            user_type=register_request.user_type,
+            user_type=user_type,
         )
         self.db.add(wallet_auth)
         self.db.commit()
@@ -89,7 +88,7 @@ class XRPLAuthService:
         access_token = self.create_access_token(
             data={
                 "sub": register_request.wallet_address,
-                "user_type": register_request.user_type.value,
+                "user_type": user_type.value,
             },
             expires_delta=access_token_expires,
         )

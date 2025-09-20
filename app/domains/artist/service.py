@@ -31,7 +31,7 @@ class ArtistService:
             wallet_address=wallet_address,
             name=payload.name,
             email=payload.email,
-            profile_image_url=payload.profile_image_url,
+            profile_image_url=payload.image_url,
         )
         self.db.add(artist)
         self.db.commit()
