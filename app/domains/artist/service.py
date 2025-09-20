@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.domains.artist import models, schemas
-from app.domains.auth.models import UserType
+from app.domains.auth.schemas import BasicProfileRequest
 
 
 class ArtistService:
@@ -12,15 +12,8 @@ class ArtistService:
         self.db = db
 
     def create_artist(
-        self, payload: schemas.ArtistCreate, wallet_address: str, user_type: UserType
+        self, payload: BasicProfileRequest, wallet_address: str
     ) -> models.Artist:
-        # Only USER type can create artist profile
-        if user_type != UserType.USER:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only USER type can create artist profile",
-            )
-
         # Check if artist profile already exists
         existing_artist = (
             self.db.query(models.Artist)

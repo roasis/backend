@@ -12,23 +12,6 @@ from app.shared.database.connection import get_db
 router = APIRouter(prefix="/galleries", tags=["gallery"])
 
 
-@router.post(
-    "/", response_model=schemas.GalleryResponse, status_code=status.HTTP_201_CREATED
-)
-def create_gallery(
-    payload: schemas.GalleryCreate,
-    current_wallet: WalletAuth = Depends(get_current_wallet_auth),
-    db: Session = Depends(get_db),
-):
-    service = GalleryService(db)
-    gallery = service.create_gallery(
-        payload,
-        wallet_address=current_wallet.wallet_address,
-        user_type=current_wallet.user_type,
-    )
-    return gallery
-
-
 @router.get("/", response_model=List[schemas.GalleryResponse])
 def list_galleries(
     skip: int = Query(0, ge=0),

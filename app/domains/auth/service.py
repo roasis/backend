@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.domains.auth import models, schemas
+from app.domains.auth.schemas import GalleryWalletRegisterRequest
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 240
@@ -55,7 +56,7 @@ class XRPLAuthService:
         return token_data
 
     def register_wallet(
-        self, register_request: schemas.WalletRegisterRequest
+        self, register_request: GalleryWalletRegisterRequest
     ) -> schemas.JwtResponse:
         """
         Register a new wallet and return access token

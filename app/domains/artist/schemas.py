@@ -4,12 +4,6 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 
 
-class ArtistCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    email: Optional[EmailStr] = None
-    profile_image: Optional[str] = Field(default=None, max_length=500)
-
-
 class ArtistUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     email: Optional[EmailStr] = None

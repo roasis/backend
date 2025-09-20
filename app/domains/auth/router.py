@@ -2,29 +2,52 @@ from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.domains.artist.service import ArtistService
 from app.domains.auth import schemas
 from app.domains.auth.service import XRPLAuthService
+from app.domains.gallery.service import GalleryService
 from app.shared.database.connection import get_db
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
 
 
-@router.post("/register", response_model=schemas.JwtResponse)
-def register_wallet(
-    register_request: schemas.WalletRegisterRequest, db: Session = Depends(get_db)
+@router.post("/register/gallery", response_model=schemas.JwtResponse)
+def register_gallery_wallet(
+    register_request: schemas.GalleryWalletRegisterRequest,
+    db: Session = Depends(get_db),
 ):
     """
-    Register a new XRPL wallet
-
-    The message should be a consistent string like:
-    "Register to Roasis with wallet: {wallet_address} at {timestamp}"
+    Register a new XRPL wallet (Gallery)
 
     **Possible errors:**
     - 409: Wallet already registered
     - 422: Invalid wallet address format
     """
     auth_service = XRPLAuthService(db)
+    gallery_service = GalleryService(db)
+    gallery_service.create_gallery(
+        register_request.profile, register_request.wallet_address
+    )
+    return auth_service.register_wallet(register_request)
+
+
+@router.post("/register/artist", response_model=schemas.JwtResponse)
+def register_artist_wallet(
+    register_request: schemas.BasicWalletRegisterRequest, db: Session = Depends(get_db)
+):
+    """
+    Register a new XRPL wallet (Artist)
+
+    **Possible errors:**
+    - 409: Wallet already registered
+    - 422: Invalid wallet address format
+    """
+    auth_service = XRPLAuthService(db)
+    artist_service = ArtistService(db)
+    artist_service.create_artist(
+        register_request.profile, register_request.wallet_address
+    )
     return auth_service.register_wallet(register_request)
 
 
@@ -35,11 +58,8 @@ def login_with_wallet(
     """
     Login with XRPL wallet signature
 
-    The message should be a consistent string like:
-    "Login to Roasis with wallet: {wallet_address} at {timestamp}"
-
     **Possible errors:**
-    - 403: Wallet not registered (register first using /auth/register)
+    - 403: Wallet not registered (register first)
     - 422: Missing required fields (wallet_address, signature, message)
     """
     auth_service = XRPLAuthService(db)

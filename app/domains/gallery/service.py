@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.domains.auth.models import UserType
+from app.domains.auth.schemas import GalleryProfileRequest
 from app.domains.gallery import models, schemas
 
 
@@ -30,15 +30,8 @@ class GalleryService:
             return None
 
     def create_gallery(
-        self, payload: schemas.GalleryCreate, wallet_address: str, user_type: UserType
+        self, payload: GalleryProfileRequest, wallet_address: str
     ) -> models.Gallery:
-        # Only GALLERY type can create gallery profile
-        if user_type != UserType.GALLERY:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only GALLERY type can create gallery profile",
-            )
-
         # Check if gallery profile already exists
         existing_gallery = (
             self.db.query(models.Gallery)

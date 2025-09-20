@@ -12,30 +12,6 @@ from app.shared.database.connection import get_db
 router = APIRouter(prefix="/artists", tags=["artist"])
 
 
-@router.post(
-    "/", response_model=schemas.ArtistResponse, status_code=status.HTTP_201_CREATED
-)
-def create_artist(
-    payload: schemas.ArtistCreate,
-    current_wallet: WalletAuth = Depends(get_current_wallet_auth),
-    db: Session = Depends(get_db),
-):
-    """
-    Create artist profile (only for USER type)
-
-    **Possible errors:**
-    - 403: Only USER type can create artist profile
-    - 409: Artist profile already exists
-    """
-    service = ArtistService(db)
-    artist = service.create_artist(
-        payload,
-        wallet_address=current_wallet.wallet_address,
-        user_type=current_wallet.user_type,
-    )
-    return artist
-
-
 @router.get("/", response_model=List[schemas.ArtistListResponse])
 def list_artists(
     skip: int = Query(0, ge=0),

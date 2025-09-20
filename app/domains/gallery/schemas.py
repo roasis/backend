@@ -5,17 +5,6 @@ from typing import List, Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
-class GalleryCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    email: Optional[EmailStr] = None
-    description: Optional[str] = None
-    website: Optional[str] = Field(default=None, max_length=500)
-    profile_image: Optional[str] = Field(default=None, max_length=500)
-    file_urls: Optional[List[str]] = Field(
-        default=None, description="List of file URLs"
-    )
-
-
 class GalleryUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     email: Optional[EmailStr] = None
