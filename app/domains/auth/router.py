@@ -2,31 +2,60 @@ from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.domains.artist.service import ArtistService
 from app.domains.auth import schemas
+from app.domains.auth.models import UserType
 from app.domains.auth.service import XRPLAuthService
+from app.domains.gallery.service import GalleryService
 from app.shared.database.connection import get_db
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
 
 
-@router.post("/register", response_model=schemas.JwtResponse)
-def register_wallet(
-    register_request: schemas.WalletRegisterRequest, db: Session = Depends(get_db)
+@router.post("/register/gallery", response_model=schemas.JwtResponse)
+def register_gallery_wallet(
+    register_request: schemas.GalleryWalletRegisterRequest,
+    db: Session = Depends(get_db),
 ):
     """
-    Register a new XRPL wallet
-
-    The message should be a consistent string like:
-    "Register to Roasis with wallet: {wallet_address} at {timestamp}"
+    Register a new XRPL wallet (Gallery)
 
     **Possible errors:**
-    - 401: Invalid wallet signature
     - 409: Wallet already registered
     - 422: Invalid wallet address format
     """
     auth_service = XRPLAuthService(db)
-    return auth_service.register_wallet(register_request)
+    gallery_service = GalleryService(db)
+
+    # First register wallet_auth, then create gallery
+    jwt_response = auth_service.register_wallet(register_request, UserType.GALLERY)
+    gallery_service.create_gallery(
+        register_request.profile, register_request.wallet_address
+    )
+    return jwt_response
+
+
+@router.post("/register/artist", response_model=schemas.JwtResponse)
+def register_artist_wallet(
+    register_request: schemas.BasicWalletRegisterRequest, db: Session = Depends(get_db)
+):
+    """
+    Register a new XRPL wallet (Artist)
+
+    **Possible errors:**
+    - 409: Wallet already registered
+    - 422: Invalid wallet address format
+    """
+    auth_service = XRPLAuthService(db)
+    artist_service = ArtistService(db)
+
+    # First register wallet_auth, then create artist
+    jwt_response = auth_service.register_wallet(register_request, UserType.USER)
+    artist_service.create_artist(
+        register_request.profile, register_request.wallet_address
+    )
+    return jwt_response
 
 
 @router.post("/login", response_model=schemas.JwtResponse)
@@ -36,12 +65,8 @@ def login_with_wallet(
     """
     Login with XRPL wallet signature
 
-    The message should be a consistent string like:
-    "Login to Roasis with wallet: {wallet_address} at {timestamp}"
-
     **Possible errors:**
-    - 401: Invalid wallet signature
-    - 403: Wallet not registered (register first using /auth/register)
+    - 403: Wallet not registered (register first)
     - 422: Missing required fields (wallet_address, signature, message)
     """
     auth_service = XRPLAuthService(db)

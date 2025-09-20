@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-import xrpl.core.keypairs as keypairs
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -16,24 +15,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 240
 class XRPLAuthService:
     def __init__(self, db: Session):
         self.db = db
-
-    def verify_wallet_signature(
-        self, wallet_address: str, message: str, signature: str
-    ) -> bool:
-        """
-        Verify XRPL wallet signature
-        """
-        try:
-            # Verify the signature using XRPL library
-            is_valid = keypairs.is_valid_message(
-                message=message.encode(),
-                signature=signature.encode(),
-                public_key=wallet_address,
-            )
-            return is_valid
-        except Exception as e:
-            print(f"Signature verification error: {e}")
-            return False
 
     def create_access_token(
         self, data: dict, expires_delta: Optional[timedelta] = None
@@ -74,21 +55,11 @@ class XRPLAuthService:
         return token_data
 
     def register_wallet(
-        self, register_request: schemas.WalletRegisterRequest
+        self, register_request, user_type: models.UserType
     ) -> schemas.JwtResponse:
         """
         Register a new wallet and return access token
         """
-        # Verify signature
-        if not self.verify_wallet_signature(
-            register_request.wallet_address,
-            register_request.message,
-            register_request.signature,
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid wallet signature",
-            )
 
         # Check if wallet already exists
         existing_wallet = (
@@ -106,7 +77,7 @@ class XRPLAuthService:
         # Create new wallet auth record
         wallet_auth = models.WalletAuth(
             wallet_address=register_request.wallet_address,
-            user_type=register_request.user_type,
+            user_type=user_type,
         )
         self.db.add(wallet_auth)
         self.db.commit()
@@ -117,7 +88,7 @@ class XRPLAuthService:
         access_token = self.create_access_token(
             data={
                 "sub": register_request.wallet_address,
-                "user_type": register_request.user_type.value,
+                "user_type": user_type.value,
             },
             expires_delta=access_token_expires,
         )
@@ -130,15 +101,6 @@ class XRPLAuthService:
         """
         Authenticate wallet and return access token
         """
-        # Verify signature
-        if not self.verify_wallet_signature(
-            login_request.wallet_address, login_request.message, login_request.signature
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid wallet signature",
-            )
-
         # Get or create wallet auth record
         wallet_auth = (
             self.db.query(models.WalletAuth)
