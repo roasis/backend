@@ -22,7 +22,7 @@ class TokenData(BaseModel):
 class BasicProfileRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     email: Optional[EmailStr] = None
-    profile_image: Optional[str] = Field(default=None, max_length=500)
+    image_url: Optional[str] = Field(default=None, max_length=500)
 
 
 class GalleryProfileRequest(BasicProfileRequest):

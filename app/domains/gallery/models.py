@@ -20,7 +20,7 @@ class Gallery(Base):
     email = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     website = Column(String(500), nullable=True)
-    profile_image = Column(String(500), nullable=True)
+    profile_image_url = Column(String(500), nullable=True)
     file_urls = Column(Text, nullable=True)  # JSON array stored as text
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(

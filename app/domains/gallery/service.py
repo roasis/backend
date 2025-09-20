@@ -51,7 +51,7 @@ class GalleryService:
             email=payload.email,
             description=payload.description,
             website=payload.website,
-            profile_image=payload.profile_image,
+            profile_image_url=payload.profile_image_url,
             file_urls=self._serialize_file_urls(payload.file_urls),
         )
         self.db.add(gallery)
