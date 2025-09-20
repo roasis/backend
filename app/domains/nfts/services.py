@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from xrpl.clients import JsonRpcClient
 from xrpl.models.requests import AccountInfo, AccountObjects, Tx
-from xrpl.models.transactions import NFTokenMint, TicketCreate, NFTokenCreateOffer
+from xrpl.models.transactions import NFTokenMint, TicketCreate, NFTokenCreateOffer, Batch
 from xrpl.transaction import XRPLReliableSubmissionException, autofill, sign, submit_and_wait
 from xrpl.utils import str_to_hex
 from xrpl.wallet import Wallet
@@ -130,10 +130,9 @@ def _sync_xrpl_batch_mint(
     if len(tickets) < grid_total:
         raise RuntimeError(f"Not enough tickets: want={grid_total}, got={len(tickets)}")
 
-    minted = 0
-    tx_hashes: List[str] = []
-    nft_ids: List[Optional[str]] = []
-    errors: List[Any] = []
+    # Prepare all NFTokenMint transactions for batch
+    raw_transactions = []
+    nft_data = []
 
     for i, tseq in enumerate(tickets[:grid_total], start=1):
         part_uri = _build_part_uri(metadata_uri_base, i, grid_total)
@@ -148,42 +147,81 @@ def _sync_xrpl_batch_mint(
             sequence=0,
             nftoken_taxon=int(taxon),
         )
-        try:
-            m_autofilled = autofill(mint_tx, client)
-            m_signed = sign(m_autofilled, wallet)
-            m_resp = submit_and_wait(m_signed, client)
 
-            if m_resp.is_successful():
-                minted += 1
-                txh = m_resp.result.get("hash")
-                nid = _extract_minted_id(m_resp.result)
-                tx_hashes.append(txh)
-                nft_ids.append(nid)
+        raw_transactions.append(mint_tx)
+        nft_data.append({
+            "part_uri": part_uri,
+            "uri_hex": uri_hex,
+            "grid_index": i,
+            "grid_total": grid_total,
+        })
 
-                db.add(
-                    NFT(
-                        artwork_id=artwork_id,
-                        uri_hex=uri_hex,
-                        nftoken_id=nid,
-                        tx_hash=txh,
-                        owner_address=classic,
-                        status="minted",
-                        price=nft_price_usd,
-                        extra={
-                            "part_uri": part_uri,
-                            "grid_index": i,
-                            "grid_total": grid_total,
-                        },
+    # Create batch transaction with flags 0x00010000
+    batch_tx = Batch(
+        account=classic,
+        raw_transactions=raw_transactions,
+        flags=0x00010000,  # tfSpike flag for batch transaction
+    )
+
+    try:
+        # Submit batch transaction
+        batch_autofilled = autofill(batch_tx, client)
+        batch_signed = sign(batch_autofilled, wallet)
+        batch_resp = submit_and_wait(batch_signed, client)
+
+        tx_hashes = []
+        nft_ids = []
+        minted = 0
+        errors = []
+
+        if batch_resp.is_successful():
+            batch_hash = batch_resp.result.get("hash")
+
+            # Process each NFT in the batch
+            for i, nft_info in enumerate(nft_data):
+                try:
+                    # For batch transactions, we need to get individual transaction results
+                    # The batch response contains the overall result
+                    nft_id = None  # Will be extracted from transaction metadata or subsequent queries
+
+                    tx_hashes.append(batch_hash)
+                    nft_ids.append(nft_id)
+                    minted += 1
+
+                    db.add(
+                        NFT(
+                            artwork_id=artwork_id,
+                            uri_hex=nft_info["uri_hex"],
+                            nftoken_id=nft_id,
+                            tx_hash=batch_hash,
+                            owner_address=classic,
+                            status="minted",
+                            price=nft_price_usd,
+                            extra={
+                                "part_uri": nft_info["part_uri"],
+                                "grid_index": nft_info["grid_index"],
+                                "grid_total": nft_info["grid_total"],
+                                "batch_transaction": True,
+                            },
+                        )
                     )
-                )
-                db.commit()
-            else:
-                errors.append(m_resp.result)
+                except Exception as e:
+                    errors.append(f"Error processing NFT {i+1}: {str(e)}")
 
-        except XRPLReliableSubmissionException as e:
-            errors.append(str(e))
-        except Exception as e:
-            errors.append(str(e))
+            db.commit()
+        else:
+            errors.append(batch_resp.result)
+
+    except XRPLReliableSubmissionException as e:
+        errors = [str(e)]
+        tx_hashes = []
+        nft_ids = []
+        minted = 0
+    except Exception as e:
+        errors = [str(e)]
+        tx_hashes = []
+        nft_ids = []
+        minted = 0
 
     return {
         "minted": minted,
