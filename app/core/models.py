@@ -1,4 +1,4 @@
 # Import all models here for Alembic autodiscovery
-from app.domains.users.models import User
+from app.domains.auth.models import WalletAuth
 
-__all__ = ["User"]
+__all__ = ["WalletAuth"]
