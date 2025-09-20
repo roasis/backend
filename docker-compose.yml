@@ -5,6 +5,11 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://roasis:roasispassword@postgres:5432/roasis_db
+      - NODE_ENV=production
+    depends_on:
+      - postgres
     networks:
       - my_network
 
@@ -19,5 +24,22 @@ services:
     networks:
       - my_network
 
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=roasis_db
+      - POSTGRES_USER=roasis
+      - POSTGRES_PASSWORD=roasispassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - my_network
+    ports:
+      - "5432:5432"
+
 networks:
   my_network:
+
+volumes:
+  postgres_data:
