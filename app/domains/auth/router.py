@@ -21,7 +21,6 @@ def register_wallet(
     "Register to Roasis with wallet: {wallet_address} at {timestamp}"
 
     **Possible errors:**
-    - 401: Invalid wallet signature
     - 409: Wallet already registered
     - 422: Invalid wallet address format
     """
@@ -40,7 +39,6 @@ def login_with_wallet(
     "Login to Roasis with wallet: {wallet_address} at {timestamp}"
 
     **Possible errors:**
-    - 401: Invalid wallet signature
     - 403: Wallet not registered (register first using /auth/register)
     - 422: Missing required fields (wallet_address, signature, message)
     """

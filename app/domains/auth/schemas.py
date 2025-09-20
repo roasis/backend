@@ -8,8 +8,6 @@ from app.domains.auth.models import UserType
 
 class WalletLoginRequest(BaseModel):
     wallet_address: str
-    signature: str
-    message: str
 
 
 class JwtResponse(BaseModel):
@@ -23,8 +21,6 @@ class TokenData(BaseModel):
 
 class WalletRegisterRequest(BaseModel):
     wallet_address: str
-    signature: str
-    message: str
     user_type: UserType
 
 
