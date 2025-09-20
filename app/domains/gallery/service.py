@@ -204,6 +204,22 @@ class GalleryService:
             .all()
         )
 
+    def get_gallery_artists_by_id(self, gallery_id: int) -> List[artist_models.Artist]:
+        """Get all artists belonging to a specific gallery by gallery ID (public)"""
+        gallery = self.get_gallery(gallery_id)
+        if not gallery:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Gallery not found"
+            )
+
+        return (
+            self.db.query(artist_models.Artist)
+            .filter(artist_models.Artist.gallery_id == gallery_id)
+            .order_by(artist_models.Artist.created_at.desc())
+            .all()
+        )
+
     def remove_artist(self, artist_id: int, gallery_wallet_address: str) -> bool:
         """Remove an artist from the gallery"""
         gallery = self.get_gallery_by_wallet(gallery_wallet_address)

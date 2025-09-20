@@ -138,3 +138,19 @@ def remove_artist_from_gallery(
     if not success:
         raise HTTPException(status_code=404, detail="Artist not found or not in this gallery")
     return None
+
+
+@router.get("/{gallery_id}/artists", response_model=List[artist_schemas.ArtistListResponse])
+def get_gallery_artists_public(
+    gallery_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Get all artists belonging to a specific gallery (public endpoint)
+
+    **Possible errors:**
+    - 404: Gallery not found
+    """
+    service = GalleryService(db)
+    artists = service.get_gallery_artists_by_id(gallery_id)
+    return artists
