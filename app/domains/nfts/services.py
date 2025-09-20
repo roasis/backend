@@ -393,7 +393,6 @@ async def register_to_ipfs_and_mint(
         "nftoken_ids": mint_result["nftoken_ids"],
         "nft_price_usd": mint_result["nft_price_usd"],
         "status": status,
-        # 오퍼 배치 결과
         "offers_created": offer_result["offers_created"],
         "offers_total_considered": offer_result["offers_total_considered"],
         "offer_ids": offer_result["offer_ids"],
