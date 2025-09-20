@@ -69,6 +69,35 @@ class XRPLAuthService:
             raise credentials_exception
         return token_data
 
+    def register_wallet(
+        self, wallet_address: str, user_type: models.UserType
+    ) -> models.WalletAuth:
+        """
+        Register a new wallet
+        """
+        # Check if wallet already exists
+        existing_wallet = (
+            self.db.query(models.WalletAuth)
+            .filter(models.WalletAuth.wallet_address == wallet_address)
+            .first()
+        )
+
+        if existing_wallet:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Wallet already registered",
+            )
+
+        # Create new wallet auth record
+        wallet_auth = models.WalletAuth(
+            wallet_address=wallet_address, user_type=user_type
+        )
+        self.db.add(wallet_auth)
+        self.db.commit()
+        self.db.refresh(wallet_auth)
+
+        return wallet_auth
+
     def authenticate_wallet(
         self, login_request: schemas.WalletLoginRequest
     ) -> schemas.LoginResponse:
@@ -92,10 +121,12 @@ class XRPLAuthService:
         )
 
         if not wallet_auth:
-            wallet_auth = models.WalletAuth(wallet_address=login_request.wallet_address)
-            self.db.add(wallet_auth)
-        else:
-            wallet_auth.last_login = datetime.utcnow()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Wallet not registered. Please register first.",
+            )
+
+        wallet_auth.last_login = datetime.utcnow()
 
         self.db.commit()
 
