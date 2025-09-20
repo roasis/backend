@@ -10,7 +10,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
 
 
-@router.post("/register", response_model=schemas.WalletRegisterResponse)
+@router.post("/register", response_model=schemas.LoginResponse)
 def register_wallet(
     register_request: schemas.WalletRegisterRequest, db: Session = Depends(get_db)
 ):
@@ -18,17 +18,12 @@ def register_wallet(
     Register a new XRPL wallet
 
     **Possible errors:**
+    - 401: Invalid wallet signature
     - 409: Wallet already registered
     - 422: Invalid wallet address format
     """
     auth_service = XRPLAuthService(db)
-    wallet_auth = auth_service.register_wallet(
-        register_request.wallet_address, register_request.user_type
-    )
-    return schemas.WalletRegisterResponse(
-        user_type=wallet_auth.user_type,
-        created_at=wallet_auth.created_at,
-    )
+    return auth_service.register_wallet(register_request)
 
 
 @router.post("/login", response_model=schemas.LoginResponse)

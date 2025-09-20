@@ -70,15 +70,26 @@ class XRPLAuthService:
         return token_data
 
     def register_wallet(
-        self, wallet_address: str, user_type: models.UserType
-    ) -> models.WalletAuth:
+        self, register_request: schemas.WalletRegisterRequest
+    ) -> schemas.LoginResponse:
         """
-        Register a new wallet
+        Register a new wallet and return access token
         """
+        # Verify signature
+        if not self.verify_wallet_signature(
+            register_request.wallet_address,
+            register_request.message,
+            register_request.signature,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid wallet signature",
+            )
+
         # Check if wallet already exists
         existing_wallet = (
             self.db.query(models.WalletAuth)
-            .filter(models.WalletAuth.wallet_address == wallet_address)
+            .filter(models.WalletAuth.wallet_address == register_request.wallet_address)
             .first()
         )
 
@@ -90,13 +101,21 @@ class XRPLAuthService:
 
         # Create new wallet auth record
         wallet_auth = models.WalletAuth(
-            wallet_address=wallet_address, user_type=user_type
+            wallet_address=register_request.wallet_address,
+            user_type=register_request.user_type,
         )
         self.db.add(wallet_auth)
         self.db.commit()
         self.db.refresh(wallet_auth)
 
-        return wallet_auth
+        # Create access token
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = self.create_access_token(
+            data={"sub": register_request.wallet_address},
+            expires_delta=access_token_expires,
+        )
+
+        return schemas.LoginResponse(access_token=access_token)
 
     def authenticate_wallet(
         self, login_request: schemas.WalletLoginRequest

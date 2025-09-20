@@ -23,6 +23,8 @@ class TokenData(BaseModel):
 
 class WalletRegisterRequest(BaseModel):
     wallet_address: str
+    signature: str
+    message: str
     user_type: UserType
 
 
