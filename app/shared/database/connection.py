@@ -5,7 +5,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://roasis:roasispassword@localhost:5432/roasis_db"
+    "DATABASE_URL",
+    "postgresql+psycopg://roasis:roasispassword@localhost:5432/roasis_db",
 )
 
 engine = create_engine(DATABASE_URL)
