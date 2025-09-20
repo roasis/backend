@@ -11,6 +11,13 @@ class GalleryCreate(BaseModel):
     description: Optional[str] = None
 
 
+class GalleryUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    phone: Optional[str] = Field(default=None, max_length=30)
+    location: Optional[str] = Field(default=None, max_length=255)
+    description: Optional[str] = None
+
+
 class GalleryResponse(BaseModel):
     id: int
     name: str
