@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.artist.service import ArtistService
 from app.domains.auth import schemas
+from app.domains.auth.models import UserType
 from app.domains.auth.service import XRPLAuthService
 from app.domains.gallery.service import GalleryService
 from app.shared.database.connection import get_db
@@ -26,10 +27,13 @@ def register_gallery_wallet(
     """
     auth_service = XRPLAuthService(db)
     gallery_service = GalleryService(db)
+
+    # First register wallet_auth, then create gallery
+    jwt_response = auth_service.register_wallet(register_request, UserType.GALLERY)
     gallery_service.create_gallery(
         register_request.profile, register_request.wallet_address
     )
-    return auth_service.register_wallet(register_request)
+    return jwt_response
 
 
 @router.post("/register/artist", response_model=schemas.JwtResponse)
@@ -45,10 +49,13 @@ def register_artist_wallet(
     """
     auth_service = XRPLAuthService(db)
     artist_service = ArtistService(db)
+
+    # First register wallet_auth, then create artist
+    jwt_response = auth_service.register_wallet(register_request, UserType.USER)
     artist_service.create_artist(
         register_request.profile, register_request.wallet_address
     )
-    return auth_service.register_wallet(register_request)
+    return jwt_response
 
 
 @router.post("/login", response_model=schemas.JwtResponse)

@@ -70,7 +70,7 @@ class GalleryService:
             email=payload.email,
             description=payload.description,
             website=payload.website,
-            profile_image_url=payload.profile_image_url,
+            profile_image_url=payload.image_url,
             file_urls=self._serialize_file_urls(payload.file_urls),
             domain_id=domain_id,
         )
