@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.domains.auth.models import UserType
 from app.domains.gallery import models, schemas
 
 
@@ -29,15 +30,36 @@ class GalleryService:
             return None
 
     def create_gallery(
-        self, payload: schemas.GalleryCreate, owner_wallet_address: str
+        self, payload: schemas.GalleryCreate, wallet_address: str, user_type: UserType
     ) -> models.Gallery:
+        # Only GALLERY type can create gallery profile
+        if user_type != UserType.GALLERY:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only GALLERY type can create gallery profile",
+            )
+
+        # Check if gallery profile already exists
+        existing_gallery = (
+            self.db.query(models.Gallery)
+            .filter(models.Gallery.wallet_address == wallet_address)
+            .first()
+        )
+
+        if existing_gallery:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Gallery profile already exists",
+            )
+
         gallery = models.Gallery(
+            wallet_address=wallet_address,
             name=payload.name,
             email=payload.email,
             description=payload.description,
             website=payload.website,
+            profile_image=payload.profile_image,
             file_urls=self._serialize_file_urls(payload.file_urls),
-            owner_wallet_address=owner_wallet_address,
         )
         self.db.add(gallery)
         self.db.commit()
@@ -48,6 +70,13 @@ class GalleryService:
         return (
             self.db.query(models.Gallery)
             .filter(models.Gallery.id == gallery_id)
+            .first()
+        )
+
+    def get_gallery_by_wallet(self, wallet_address: str) -> Optional[models.Gallery]:
+        return (
+            self.db.query(models.Gallery)
+            .filter(models.Gallery.wallet_address == wallet_address)
             .first()
         )
 
@@ -71,7 +100,7 @@ class GalleryService:
             return None
 
         # Check if current user is the owner
-        if gallery.owner_wallet_address != current_wallet_address:
+        if gallery.wallet_address != current_wallet_address:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only gallery owner can update this gallery",
@@ -96,7 +125,7 @@ class GalleryService:
             return False
 
         # Check if current user is the owner
-        if gallery.owner_wallet_address != current_wallet_address:
+        if gallery.wallet_address != current_wallet_address:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only gallery owner can delete this gallery",
