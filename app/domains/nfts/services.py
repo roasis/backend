@@ -286,12 +286,12 @@ def _sync_xrpl_single_offer(
         extra = nft.extra or {}
         extra.update({
             "gift_offer_id": oid,
-            "gift_offer_tx_hash": res.get("hash"),
             "gift_offer_amount": price_drops,
             "gift_offer_price_usd": nft.price,
             "gift_offer_type": "public",  # Public offer anyone can accept
         })
         nft.status = "offered_to_artist"
+        nft.offer_tx_hash = res.get("hash")  # 별도 컬럼에 저장
         nft.extra = extra
         db.add(nft)
         db.commit()
@@ -395,8 +395,8 @@ def _sync_xrpl_multi_offer(
             "price_usd": r.price,
         })
 
-    # Process transactions in chunks of 4 (XRPL batch limit)
-    BATCH_SIZE = 4
+    # Process transactions in chunks of 7 (XRPL batch limit)
+    BATCH_SIZE = 7
 
     print(f"📦 TOTAL OFFER TRANSACTIONS: {len(raw_transactions)}")
     print(f"📦 PROCESSING IN CHUNKS OF: {BATCH_SIZE}")
@@ -454,15 +454,17 @@ def _sync_xrpl_multi_offer(
                     # Update NFT record
                     nft_record = single_nft_data["nft_record"]
                     extra = nft_record.extra or {}
+
                     extra.update({
                         "gift_offer_id": offer_id,
-                        "gift_offer_tx_hash": tx_hash,
                         "gift_offer_amount": single_nft_data["price_drops"],
                         "gift_offer_price_usd": single_nft_data["price_usd"],
                         "gift_offer_type": "public",  # Public offer anyone can accept
                     })
                     nft_record.status = "offered_to_artist"
+                    nft_record.offer_tx_hash = tx_hash  # 별도 컬럼에 저장
                     nft_record.extra = extra
+                    print(nft_record)
                     db.add(nft_record)
                     print("💾 Committing single offer DB update...")
                     db.commit()
@@ -531,7 +533,6 @@ def _sync_xrpl_multi_offer(
                         extra = nft_record.extra or {}
                         extra.update({
                             "gift_offer_id": None,  # Not available in batch response
-                            "gift_offer_tx_hash": batch_hash,
                             "gift_offer_amount": nft_info["price_drops"],
                             "gift_offer_price_usd": nft_info["price_usd"],
                             "gift_offer_type": "public",  # Public offer anyone can accept
@@ -539,6 +540,7 @@ def _sync_xrpl_multi_offer(
                             "batch_chunk": chunk_num,
                         })
                         nft_record.status = "offered_to_artist"
+                        nft_record.offer_tx_hash = batch_hash  # 별도 컬럼에 저장
                         nft_record.extra = extra
                         db.add(nft_record)
 

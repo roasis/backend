@@ -31,6 +31,7 @@ class NFT(Base):
     uri_hex = Column(String(512), nullable=False, unique=True)  # XRPL 저장된 hex URI
     nftoken_id = Column(String(128), nullable=True)  # XRPL 발급된 NFTokenID
     tx_hash = Column(String(128), nullable=True)  # 민팅 트랜잭션 해시
+    offer_tx_hash = Column(String(128), nullable=True)  # 오퍼 트랜잭션 해시
     owner_address = Column(String(128), nullable=False)  # 최초 소유자(민팅 계정 or 이후 이전 계정)
     status = Column(String(50), default="minted")  # minted / listed / sold
     price = Column(Integer, nullable=False)  # USD 가격 (조각별 가격)

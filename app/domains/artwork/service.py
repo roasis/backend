@@ -29,10 +29,10 @@ class ArtworkService:
                 "uri_hex": nft.uri_hex,
                 "nftoken_id": nft.nftoken_id,
                 "tx_hash": nft.tx_hash,
+                "offer_tx_hash": nft.offer_tx_hash,  # 별도 컬럼에서 직접 가져오기
                 "owner_address": nft.owner_address,
                 "status": nft.status,
                 "price": nft.price,
-                "extra": nft.extra,
             })
 
         return {

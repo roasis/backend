@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
+
+from app.domains.nfts.schemas import NFTResponse
 
 
 class ArtworkResponse(BaseModel):
@@ -16,7 +18,7 @@ class ArtworkResponse(BaseModel):
     metadata_uri_base: str = Field(..., description="Base URI for metadata (e.g., ipfs://cid/meta.json)")
     artist_address: str = Field(..., description="Artist's XRPL wallet address")
     created_at: datetime = Field(..., description="Creation timestamp")
-    nfts: Optional[list] = Field(None, description="List of associated NFTs")
+    nfts: Optional[List[NFTResponse]] = Field(None, description="List of associated NFTs")
 
     class Config:
         from_attributes = True
