@@ -1,3 +1,4 @@
+import json
 from typing import List, Optional
 
 from fastapi import HTTPException, status
@@ -10,14 +11,32 @@ class GalleryService:
     def __init__(self, db: Session):
         self.db = db
 
+    def _serialize_file_urls(self, file_urls: Optional[List[str]]) -> Optional[str]:
+        """Convert list of URLs to JSON string"""
+        if file_urls is None:
+            return None
+        return json.dumps(file_urls)
+
+    def _deserialize_file_urls(
+        self, file_urls_json: Optional[str]
+    ) -> Optional[List[str]]:
+        """Convert JSON string to list of URLs"""
+        if file_urls_json is None:
+            return None
+        try:
+            return json.loads(file_urls_json)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
     def create_gallery(
         self, payload: schemas.GalleryCreate, owner_wallet_address: str
     ) -> models.Gallery:
         gallery = models.Gallery(
             name=payload.name,
-            phone=payload.phone,
-            location=payload.location,
+            email=payload.email,
             description=payload.description,
+            website=payload.website,
+            file_urls=self._serialize_file_urls(payload.file_urls),
             owner_wallet_address=owner_wallet_address,
         )
         self.db.add(gallery)
@@ -61,7 +80,11 @@ class GalleryService:
         # Apply only provided fields
         update_data = payload.model_dump(exclude_unset=True)
         for field, value in update_data.items():
-            setattr(gallery, field, value)
+            if field == "file_urls":
+                # Serialize file URLs to JSON
+                setattr(gallery, field, self._serialize_file_urls(value))
+            else:
+                setattr(gallery, field, value)
         self.db.add(gallery)
         self.db.commit()
         self.db.refresh(gallery)

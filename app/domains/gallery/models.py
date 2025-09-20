@@ -9,8 +9,12 @@ class Gallery(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False, index=True)
-    phone = Column(String(30), nullable=True)
-    location = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
+    website = Column(String(500), nullable=True)
+    file_urls = Column(Text, nullable=True)  # JSON array stored as text
     owner_wallet_address = Column(String(50), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
