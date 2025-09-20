@@ -93,12 +93,10 @@ class GalleryService:
             .first()
         )
 
-    def list_galleries(self, skip: int = 0, limit: int = 100) -> List[models.Gallery]:
+    def list_galleries(self) -> List[models.Gallery]:
         return (
             self.db.query(models.Gallery)
             .order_by(models.Gallery.id.desc())
-            .offset(skip)
-            .limit(limit)
             .all()
         )
 

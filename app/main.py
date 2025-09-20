@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core import models  # noqa: F401
 from app.core.config import settings
 from app.domains.artist.router import router as artist_router
+from app.domains.artwork.router import router as artwork_router
 from app.domains.auth.router import router as auth_router
 from app.domains.gallery.router import router as gallery_router
 from app.domains.nfts.router import router as nfts_router
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     # Include routers
     application.include_router(auth_router, prefix="/api/v1")
     application.include_router(artist_router, prefix="/api/v1")
+    application.include_router(artwork_router, prefix="/api/v1")
     application.include_router(gallery_router, prefix="/api/v1")
     application.include_router(nfts_router, prefix="/api/v1")
 
