@@ -12,9 +12,8 @@ class WalletLoginRequest(BaseModel):
     message: str
 
 
-class LoginResponse(BaseModel):
+class JwtResponse(BaseModel):
     access_token: str
-    token_type: str = "bearer"
 
 
 class TokenData(BaseModel):
@@ -26,12 +25,6 @@ class WalletRegisterRequest(BaseModel):
     signature: str
     message: str
     user_type: UserType
-
-
-class WalletRegisterResponse(BaseModel):
-    user_type: UserType
-    created_at: datetime
-    message: str = "Wallet registered successfully"
 
 
 class UserInfoResponse(BaseModel):

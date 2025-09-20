@@ -10,7 +10,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 security = HTTPBearer()
 
 
-@router.post("/register", response_model=schemas.LoginResponse)
+@router.post("/register", response_model=schemas.JwtResponse)
 def register_wallet(
     register_request: schemas.WalletRegisterRequest, db: Session = Depends(get_db)
 ):
@@ -26,7 +26,7 @@ def register_wallet(
     return auth_service.register_wallet(register_request)
 
 
-@router.post("/login", response_model=schemas.LoginResponse)
+@router.post("/login", response_model=schemas.JwtResponse)
 def login_with_wallet(
     login_request: schemas.WalletLoginRequest, db: Session = Depends(get_db)
 ):

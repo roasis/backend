@@ -71,7 +71,7 @@ class XRPLAuthService:
 
     def register_wallet(
         self, register_request: schemas.WalletRegisterRequest
-    ) -> schemas.LoginResponse:
+    ) -> schemas.JwtResponse:
         """
         Register a new wallet and return access token
         """
@@ -115,11 +115,11 @@ class XRPLAuthService:
             expires_delta=access_token_expires,
         )
 
-        return schemas.LoginResponse(access_token=access_token)
+        return schemas.JwtResponse(access_token=access_token)
 
     def authenticate_wallet(
         self, login_request: schemas.WalletLoginRequest
-    ) -> schemas.LoginResponse:
+    ) -> schemas.JwtResponse:
         """
         Authenticate wallet and return access token
         """
@@ -156,7 +156,7 @@ class XRPLAuthService:
             expires_delta=access_token_expires,
         )
 
-        return schemas.LoginResponse(access_token=access_token)
+        return schemas.JwtResponse(access_token=access_token)
 
     def get_current_wallet(self, token: str) -> models.WalletAuth:
         """
