@@ -19,6 +19,7 @@ class Artist(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(255), nullable=True)
     profile_image_url = Column(String(500), nullable=True)
+    gallery_id = Column(Integer, ForeignKey("galleries.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -26,3 +27,5 @@ class Artist(Base):
 
     # 1:1 relationship with WalletAuth
     wallet_auth = relationship("WalletAuth", back_populates="artist")
+    # Many-to-one relationship with Gallery
+    gallery = relationship("Gallery", back_populates="artists")

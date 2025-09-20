@@ -16,6 +16,7 @@ class ArtistResponse(BaseModel):
     name: str
     email: Optional[str]
     profile_image_url: Optional[str]
+    gallery_id: Optional[int]
     created_at: datetime
     updated_at: datetime
 
@@ -29,7 +30,18 @@ class ArtistListResponse(BaseModel):
     name: str
     email: Optional[str]
     profile_image_url: Optional[str]
+    gallery_id: Optional[int]
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class ArtistInviteRequest(BaseModel):
+    artist_wallet_address: str = Field(..., description="Artist's wallet address to invite")
+
+
+class ArtistInviteResponse(BaseModel):
+    message: str
+    artist_id: int
+    gallery_id: int
