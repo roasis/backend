@@ -24,6 +24,7 @@ class GalleryResponse(BaseModel):
     phone: Optional[str]
     location: Optional[str]
     description: Optional[str]
+    owner_wallet_address: str
     created_at: datetime
 
     class Config:

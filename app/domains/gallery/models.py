@@ -12,4 +12,5 @@ class Gallery(Base):
     phone = Column(String(30), nullable=True)
     location = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
+    owner_wallet_address = Column(String(50), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

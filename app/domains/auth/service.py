@@ -64,7 +64,11 @@ class XRPLAuthService:
             wallet_address: str = payload.get("sub")
             if wallet_address is None:
                 raise credentials_exception
-            token_data = schemas.TokenData(wallet_address=wallet_address)
+            user_type_value = payload.get("user_type")
+            user_type = models.UserType(user_type_value) if user_type_value else None
+            token_data = schemas.TokenData(
+                wallet_address=wallet_address, user_type=user_type
+            )
         except JWTError:
             raise credentials_exception
         return token_data
@@ -111,7 +115,10 @@ class XRPLAuthService:
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = self.create_access_token(
-            data={"sub": register_request.wallet_address},
+            data={
+                "sub": register_request.wallet_address,
+                "user_type": register_request.user_type.value,
+            },
             expires_delta=access_token_expires,
         )
 
@@ -152,7 +159,10 @@ class XRPLAuthService:
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = self.create_access_token(
-            data={"sub": login_request.wallet_address},
+            data={
+                "sub": login_request.wallet_address,
+                "user_type": wallet_auth.user_type.value,
+            },
             expires_delta=access_token_expires,
         )
 

@@ -18,6 +18,7 @@ class JwtResponse(BaseModel):
 
 class TokenData(BaseModel):
     wallet_address: Optional[str] = None
+    user_type: Optional[UserType] = None
 
 
 class WalletRegisterRequest(BaseModel):
