@@ -67,3 +67,15 @@ def get_current_user(
         last_login=wallet_auth.last_login,
         is_active=wallet_auth.is_active,
     )
+
+
+# Dependency for protected routes
+def get_current_wallet_auth(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    """
+    Dependency to get current authenticated wallet for protected routes
+    """
+    auth_service = XRPLAuthService(db)
+    return auth_service.get_current_wallet(credentials.credentials)
