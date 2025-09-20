@@ -30,7 +30,7 @@ docker-compose up
 ## Development Setup
 
 ### Requirements
-- Python 3.13+
+- Python 3.12+
 - uv package manager
 - Docker & Docker Compose
 
