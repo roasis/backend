@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.domains.artist import models as artist_models, schemas as artist_schemas
 from app.domains.auth.schemas import GalleryProfileRequest
 from app.domains.gallery import models, schemas
 from app.shared.xrpl import XRPLService
@@ -143,5 +144,89 @@ class GalleryService:
             )
 
         self.db.delete(gallery)
+        self.db.commit()
+        return True
+
+    def invite_artist(self, artist_wallet_address: str, gallery_wallet_address: str) -> artist_schemas.ArtistInviteResponse:
+        """Invite an artist to the gallery"""
+        # Get current gallery
+        gallery = self.get_gallery_by_wallet(gallery_wallet_address)
+        if not gallery:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Gallery not found"
+            )
+
+        # Get artist by wallet address
+        artist = (
+            self.db.query(artist_models.Artist)
+            .filter(artist_models.Artist.wallet_address == artist_wallet_address)
+            .first()
+        )
+        if not artist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Artist not found"
+            )
+
+        # Check if artist already belongs to a gallery
+        if artist.gallery_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Artist already belongs to a gallery"
+            )
+
+        # Assign artist to gallery
+        artist.gallery_id = gallery.id
+        self.db.add(artist)
+        self.db.commit()
+        self.db.refresh(artist)
+
+        return artist_schemas.ArtistInviteResponse(
+            message=f"Artist {artist.name} has been successfully invited to {gallery.name}",
+            artist_id=artist.id,
+            gallery_id=gallery.id
+        )
+
+    def get_gallery_artists(self, gallery_wallet_address: str) -> List[artist_models.Artist]:
+        """Get all artists belonging to the gallery"""
+        gallery = self.get_gallery_by_wallet(gallery_wallet_address)
+        if not gallery:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Gallery not found"
+            )
+
+        return (
+            self.db.query(artist_models.Artist)
+            .filter(artist_models.Artist.gallery_id == gallery.id)
+            .order_by(artist_models.Artist.created_at.desc())
+            .all()
+        )
+
+    def remove_artist(self, artist_id: int, gallery_wallet_address: str) -> bool:
+        """Remove an artist from the gallery"""
+        gallery = self.get_gallery_by_wallet(gallery_wallet_address)
+        if not gallery:
+            return False
+
+        artist = (
+            self.db.query(artist_models.Artist)
+            .filter(artist_models.Artist.id == artist_id)
+            .first()
+        )
+        if not artist:
+            return False
+
+        # Check if artist belongs to this gallery
+        if artist.gallery_id != gallery.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Artist does not belong to this gallery"
+            )
+
+        # Remove artist from gallery
+        artist.gallery_id = None
+        self.db.add(artist)
         self.db.commit()
         return True

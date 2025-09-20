@@ -32,3 +32,5 @@ class Gallery(Base):
 
     # 1:1 relationship with WalletAuth (only for GALLERY type)
     wallet_auth = relationship("WalletAuth", back_populates="gallery")
+    # One-to-many relationship with Artists
+    artists = relationship("Artist", back_populates="gallery")
