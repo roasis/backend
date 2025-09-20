@@ -26,7 +26,6 @@ def register_wallet(
         register_request.wallet_address, register_request.user_type
     )
     return schemas.WalletRegisterResponse(
-        wallet_address=wallet_auth.wallet_address,
         user_type=wallet_auth.user_type,
         created_at=wallet_auth.created_at,
     )
@@ -66,7 +65,6 @@ def get_current_user(
     auth_service = XRPLAuthService(db)
     wallet_auth = auth_service.get_current_wallet(credentials.credentials)
     return schemas.UserInfoResponse(
-        wallet_address=wallet_auth.wallet_address,
         user_type=wallet_auth.user_type,
         last_login=wallet_auth.last_login,
         is_active=wallet_auth.is_active,
