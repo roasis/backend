@@ -12,12 +12,13 @@ class Settings(BaseSettings):
     pinata_jwt: str = os.getenv("PINATA_JWT", "")
     pinata_gateway: str = "https://gateway.pinata.cloud/ipfs"
 
+    # XRPL
+    xrpl_rpc_url: str = os.getenv("DEVNET_URL", "https://s.devnet.rippletest.net:51234/")
     platform_seed: str = os.getenv("PLATFORM_SEED", "")
 
     database_url: str = os.getenv(
         "DATABASE_URL", "postgresql://roasis:roasispassword@localhost:5432/roasis_db"
     )
-    node_env: str = os.getenv("NODE_ENV", "development")
 
     # Security
     secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")

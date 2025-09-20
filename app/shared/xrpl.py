@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 import xrpl
@@ -8,17 +7,17 @@ from xrpl.clients import JsonRpcClient
 from xrpl.models import PermissionedDomainSet
 from xrpl.wallet import Wallet
 
+from app.core.config import settings
+
 
 class XRPLService:
     def __init__(self):
-        self.client = JsonRpcClient(
-            os.getenv("XRPL_NODE_URL", "https://s.altnet.rippletest.net:51234/")
-        )
+        self.client = JsonRpcClient(settings.xrpl_rpc_url)
         self.service_wallet = self._get_admin_wallet()
 
     def _get_admin_wallet(self) -> Wallet:
         """Get or create service wallet for domain management"""
-        seed = os.getenv("XRPL_SERVICE_WALLET_SEED")
+        seed = settings.platform_seed
         if seed:
             return Wallet.from_seed(seed)
         else:

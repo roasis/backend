@@ -52,13 +52,11 @@ def create_app() -> FastAPI:
             db.execute("SELECT 1")
             return {
                 "status": "healthy",
-                "environment": settings.node_env,
                 "database": "connected",
             }
         except Exception as e:
             return {
                 "status": "unhealthy",
-                "environment": settings.node_env,
                 "database": "disconnected",
                 "error": str(e),
             }
