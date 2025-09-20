@@ -33,6 +33,7 @@ class NFT(Base):
     tx_hash = Column(String(128), nullable=True)  # 민팅 트랜잭션 해시
     owner_address = Column(String(128), nullable=False)  # 최초 소유자(민팅 계정 or 이후 이전 계정)
     status = Column(String(50), default="minted")  # minted / listed / sold
+    price = Column(Integer, nullable=False)  # USD 가격 (조각별 가격)
     extra = Column(JSON, nullable=True)  # 확장용 (가격, 메타데이터 캐시 등)
 
     artwork = relationship("Artwork", back_populates="nfts")
