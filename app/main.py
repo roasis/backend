@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.domains.artist.router import router as artist_router
 from app.domains.auth.router import router as auth_router
 from app.domains.gallery.router import router as gallery_router
+from app.domains.nfts.router import router as nfts_router
 from app.shared.database.connection import Base, engine, get_db
 
 # Create database tables
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     application.include_router(auth_router, prefix="/api/v1")
     application.include_router(artist_router, prefix="/api/v1")
     application.include_router(gallery_router, prefix="/api/v1")
+    application.include_router(nfts_router, prefix="/api/v1")
 
     @application.get("/")
     async def root() -> dict[str, str]:
