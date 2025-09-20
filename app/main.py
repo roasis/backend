@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.shared.database.connection import engine, get_db, Base
 from app.domains.users.router import router as users_router
-# from app.domains.blockchain.router import router as blockchain_router
 
 # Import models for table creation
 import app.core.models
@@ -21,7 +20,7 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    app.include_router(users_router, prefix="/api/v1/users")
+    app.include_router(users_router, prefix="/api/v1")
 
     @app.get("/")
     async def root():
