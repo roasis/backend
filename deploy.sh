@@ -18,60 +18,24 @@ echo -e "${GREEN}🚀 Starting Roasis Backend Deployment${NC}"
 echo -e "${YELLOW}Environment: $ENVIRONMENT${NC}"
 echo -e "${YELLOW}Domain: $DOMAIN${NC}"
 
-# Function to setup SSL certificates
+# Function to setup SSL certificates (self-signed for AWS EC2)
 setup_ssl() {
     local domain=$1
 
-    echo -e "${YELLOW}🔐 Setting up SSL for domain: $domain${NC}"
+    echo -e "${YELLOW}🔐 Setting up self-signed SSL certificate for: $domain${NC}"
+    echo -e "${YELLOW}ℹ️  AWS EC2 domains cannot use Let's Encrypt certificates${NC}"
 
-    # Update nginx.prod.conf with actual domain
-    sed -i.bak "s/your-domain.com/$domain/g" nginx.prod.conf
+    # Create SSL directory
+    mkdir -p ./ssl
 
-    # Create certbot directories
-    mkdir -p ./certbot/conf
-    mkdir -p ./certbot/www
+    # Generate self-signed certificate
+    echo "🔑 Generating self-signed SSL certificate..."
+    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout ./ssl/server.key \
+        -out ./ssl/server.crt \
+        -subj "/C=US/ST=CA/L=San Francisco/O=Roasis/OU=IT/CN=$domain"
 
-    # Download SSL parameters if not exists
-    if [ ! -e "./certbot/conf/options-ssl-nginx.conf" ]; then
-        echo "📥 Downloading SSL parameters..."
-        curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > "./certbot/conf/options-ssl-nginx.conf"
-        curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/certbot/ssl-dhparams.pem > "./certbot/conf/ssl-dhparams.pem"
-    fi
-
-    # Create dummy certificate for initial nginx start
-    echo "🔑 Creating temporary certificate..."
-    local path="/etc/letsencrypt/live/$domain"
-    mkdir -p "./certbot/conf/live/$domain"
-    sudo docker-compose -f docker-compose.prod.yml run --rm --entrypoint "\
-      openssl req -x509 -nodes -newkey rsa:4096 -days 1\
-        -keyout '$path/privkey.pem' \
-        -out '$path/fullchain.pem' \
-        -subj '/CN=localhost'" certbot
-
-    # Start nginx
-    echo "🌐 Starting nginx..."
-    sudo docker-compose -f docker-compose.prod.yml up --force-recreate -d nginx
-
-    # Remove dummy certificate
-    echo "🗑️ Removing temporary certificate..."
-    sudo docker-compose -f docker-compose.prod.yml run --rm --entrypoint "\
-      rm -Rf /etc/letsencrypt/live/$domain && \
-      rm -Rf /etc/letsencrypt/archive/$domain && \
-      rm -Rf /etc/letsencrypt/renewal/$domain.conf" certbot
-
-    # Get real certificate
-    echo "📜 Requesting Let's Encrypt certificate..."
-    sudo docker-compose -f docker-compose.prod.yml run --rm --entrypoint "\
-      certbot certonly --webroot -w /var/www/certbot \
-        -d $domain \
-        --email $EMAIL \
-        --rsa-key-size 4096 \
-        --agree-tos \
-        --force-renewal" certbot
-
-    # Reload nginx
-    echo "🔄 Reloading nginx..."
-    sudo docker-compose -f docker-compose.prod.yml exec nginx nginx -s reload
+    echo "✅ Self-signed SSL certificate created"
 }
 
 # Stop existing containers
@@ -84,12 +48,12 @@ sudo docker-compose -f docker-compose.prod.yml build --no-cache
 
 # Production deployment with SSL
 # Check if SSL certificates exist
-if [ ! -d "./certbot/conf/live/$DOMAIN" ]; then
+if [ ! -f "./ssl/server.crt" ] || [ ! -f "./ssl/server.key" ]; then
     setup_ssl "$DOMAIN"
-else
-    echo -e "${YELLOW}📋 Starting production containers...${NC}"
-    sudo docker-compose -f docker-compose.prod.yml up -d
 fi
+
+echo -e "${YELLOW}📋 Starting production containers...${NC}"
+sudo docker-compose -f docker-compose.prod.yml up -d
 
 # Health check with HTTPS
 echo -e "${YELLOW}🔍 Waiting for services to be healthy...${NC}"
@@ -97,7 +61,8 @@ timeout 120 bash -c "until curl -f -k https://localhost/health; do sleep 2; done
 
 echo -e "${GREEN}✅ Production deployment completed successfully!${NC}"
 echo -e "${GREEN}🌐 Backend is running at: https://$DOMAIN${NC}"
-echo -e "${GREEN}🔒 SSL certificate is active${NC}"
+echo -e "${GREEN}🔒 Self-signed SSL certificate is active${NC}"
+echo -e "${YELLOW}⚠️  You may need to accept the security warning in your browser${NC}"
 
 # Check logs
 echo -e "${YELLOW}📋 Recent logs:${NC}"
@@ -107,4 +72,4 @@ sudo docker-compose -f docker-compose.prod.yml logs --tail=20
 echo -e "${YELLOW}🔧 Useful commands:${NC}"
 echo "  View logs: sudo docker-compose -f docker-compose.prod.yml logs -f"
 echo "  Stop: sudo docker-compose -f docker-compose.prod.yml down"
-echo "  SSL renewal test: sudo docker-compose -f docker-compose.prod.yml exec certbot certbot renew --dry-run"
+echo "  Regenerate SSL cert: sudo rm -rf ./ssl && ./deploy.sh"
