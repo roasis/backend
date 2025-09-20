@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 # Import models for table creation
@@ -18,6 +19,19 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         description=settings.app_description,
         version=settings.app_version,
+    )
+
+    # Add CORS middleware
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "https://roasis-front.vercel.app",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     # Include routers
