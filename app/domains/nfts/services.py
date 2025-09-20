@@ -1,13 +1,15 @@
 import asyncio
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
+from xrpl.asyncio.transaction import XRPLReliableSubmissionException
 from xrpl.clients import JsonRpcClient
 from xrpl.models.requests import AccountInfo, AccountObjects, Tx
 from xrpl.models.transactions import NFTokenMint, TicketCreate, NFTokenCreateOffer
-from xrpl.transaction import XRPLReliableSubmissionException, autofill, sign, submit_and_wait
+from xrpl.transaction import autofill, sign, submit_and_wait
 from xrpl.utils import str_to_hex
 from xrpl.wallet import Wallet
 from functools import partial
@@ -194,12 +196,111 @@ def _sync_xrpl_batch_mint(
     }
 
 
-def _sync_xrpl_batch_offer(
+def _sync_xrpl_single_offer(
     db: Session,
     *,
     artwork_id: int,
     artist_address: str,
 ) -> Dict[str, Any]:
+    """단일 NFT 오퍼 생성 함수"""
+    logging.info(f"Starting single offer creation for artwork_id={artwork_id}")
+
+    client = _xrpl_client()
+    seed = settings.platform_seed
+    if not seed:
+        raise RuntimeError("platform_seed is not configured")
+    wallet = Wallet.from_seed(seed)
+    classic = wallet.classic_address
+
+    # 단일 NFT 로드
+    nft: Optional[NFT] = (
+        db.query(NFT)
+        .filter(NFT.artwork_id == artwork_id)
+        .filter(NFT.owner_address == classic)
+        .filter(NFT.nftoken_id.isnot(None))
+        .filter(NFT.status.in_(["minted", "offered_to_artist"]))
+        .first()
+    )
+
+    if not nft:
+        logging.error("No NFT found for single offer creation")
+        return {
+            "offers_created": 0,
+            "offers_total_considered": 0,
+            "offer_ids": [],
+            "offer_tx_hashes": [],
+            "failed": 1,
+            "errors": ["No NFT found"],
+        }
+
+    # 이미 offer_id 있으면 스킵
+    existing_offer_id = (nft.extra or {}).get("gift_offer_id")
+    if existing_offer_id:
+        logging.info(f"NFT {nft.id} already has offer_id={existing_offer_id}")
+        return {
+            "offers_created": 0,
+            "offers_total_considered": 1,
+            "offer_ids": [existing_offer_id],
+            "offer_tx_hashes": [(nft.extra or {}).get("gift_offer_tx_hash")],
+            "failed": 0,
+            "errors": [],
+        }
+
+    try:
+        logging.info(f"Creating single offer for NFT {nft.id}")
+        res = _create_zero_amount_gift_offer(
+            client=client,
+            wallet=wallet,
+            nftoken_id=nft.nftoken_id,
+            destination=artist_address,
+        )
+
+        oid = _extract_offer_index(res)
+        logging.info(f"Single offer created: offer_id={oid}, tx_hash={res.get('hash')}")
+
+        # DB 업데이트
+        extra = nft.extra or {}
+        extra.update({
+            "gift_offer_id": oid,
+            "gift_offer_tx_hash": res.get("hash"),
+            "gift_offer_destination": artist_address,
+            "gift_offer_amount": "0",
+        })
+        nft.status = "offered_to_artist"
+        nft.extra = extra
+        db.add(nft)
+        db.commit()
+
+        return {
+            "offers_created": 1,
+            "offers_total_considered": 1,
+            "offer_ids": [oid],
+            "offer_tx_hashes": [res.get("hash")],
+            "failed": 0,
+            "errors": [],
+        }
+
+    except Exception as e:
+        logging.error(f"Error creating single offer: {str(e)}")
+        return {
+            "offers_created": 0,
+            "offers_total_considered": 1,
+            "offer_ids": [None],
+            "offer_tx_hashes": [None],
+            "failed": 1,
+            "errors": [str(e)],
+        }
+
+
+def _sync_xrpl_multi_offer(
+    db: Session,
+    *,
+    artwork_id: int,
+    artist_address: str,
+) -> Dict[str, Any]:
+    """다중 NFT 오퍼 생성 함수"""
+    logging.info(f"Starting multi offer creation for artwork_id={artwork_id}")
+
     client = _xrpl_client()
     seed = settings.platform_seed
     if not seed:
@@ -213,34 +314,50 @@ def _sync_xrpl_batch_offer(
         .filter(NFT.artwork_id == artwork_id)
         .filter(NFT.owner_address == classic)
         .filter(NFT.nftoken_id.isnot(None))
-        .filter(NFT.status.in_(["minted", "offered_to_artist"]))  # 재시도 안전
+        .filter(NFT.status.in_(["minted", "offered_to_artist"]))
         .all()
     )
+
+    logging.info(f"Found {len(rows)} NFTs to process for multi offers")
 
     created = 0
     offer_ids: List[Optional[str]] = []
     offer_tx_hashes: List[Optional[str]] = []
     errors: List[Any] = []
 
-    for r in rows:
+    for idx, r in enumerate(rows):
+        logging.info(f"Processing offer {idx+1}/{len(rows)}: NFT ID={r.id}")
+
         # 이미 offer_id 있으면 스킵(재진입 대비)
         existing_offer_id = (r.extra or {}).get("gift_offer_id")
         if existing_offer_id:
+            logging.info(f"NFT {r.id} already has offer_id={existing_offer_id}, skipping")
             offer_ids.append(existing_offer_id)
             offer_tx_hashes.append((r.extra or {}).get("gift_offer_tx_hash"))
             continue
 
+        if not r.nftoken_id:
+            logging.error(f"NFT {r.id} has no nftoken_id, cannot create offer")
+            errors.append(f"NFT {r.id} missing nftoken_id")
+            offer_ids.append(None)
+            offer_tx_hashes.append(None)
+            continue
+
         try:
+            logging.info(f"Creating offer for NFT {r.id} with nftoken_id={r.nftoken_id}")
             res = _create_zero_amount_gift_offer(
                 client=client,
                 wallet=wallet,
                 nftoken_id=r.nftoken_id,
                 destination=artist_address,
             )
+
             oid = _extract_offer_index(res)
             offer_ids.append(oid)
             offer_tx_hashes.append(res.get("hash"))
             created += 1
+
+            logging.info(f"Successfully created offer for NFT {r.id}: offer_id={oid}")
 
             # DB 업데이트
             extra = r.extra or {}
@@ -255,8 +372,11 @@ def _sync_xrpl_batch_offer(
             db.add(r)
             db.commit()
 
+            logging.info(f"Updated NFT {r.id} status to 'offered_to_artist'")
+
         except Exception as e:
-            errors.append(str(e))
+            logging.error(f"Error creating offer for NFT {r.id}: {str(e)}")
+            errors.append(f"NFT {r.id}: {str(e)}")
             offer_ids.append(None)
             offer_tx_hashes.append(None)
 
@@ -268,6 +388,49 @@ def _sync_xrpl_batch_offer(
         "failed": len(errors),
         "errors": errors,
     }
+
+
+def _sync_xrpl_batch_offer(
+    db: Session,
+    *,
+    artwork_id: int,
+    artist_address: str,
+) -> Dict[str, Any]:
+    """XRPL 오퍼 생성 라우팅 함수 - 단일/다중 처리 분기"""
+    logging.info(f"Starting offer creation routing for artwork_id={artwork_id}")
+
+    # NFT 개수 확인
+    seed = settings.platform_seed
+    if not seed:
+        raise RuntimeError("platform_seed is not configured")
+    wallet = Wallet.from_seed(seed)
+    classic = wallet.classic_address
+
+    nft_count = (
+        db.query(NFT)
+        .filter(NFT.artwork_id == artwork_id)
+        .filter(NFT.owner_address == classic)
+        .filter(NFT.nftoken_id.isnot(None))
+        .filter(NFT.status.in_(["minted", "offered_to_artist"]))
+        .count()
+    )
+
+    logging.info(f"Found {nft_count} NFTs for offer creation")
+
+    if nft_count == 1:
+        logging.info("Routing to single NFT offer")
+        return _sync_xrpl_single_offer(
+            db=db,
+            artwork_id=artwork_id,
+            artist_address=artist_address,
+        )
+    else:
+        logging.info(f"Routing to multi NFT offer for {nft_count} NFTs")
+        return _sync_xrpl_multi_offer(
+            db=db,
+            artwork_id=artwork_id,
+            artist_address=artist_address,
+        )
 
 
 async def register_to_ipfs_and_mint(
