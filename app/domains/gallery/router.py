@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.domains.auth.models import WalletAuth
@@ -14,12 +14,10 @@ router = APIRouter(prefix="/galleries", tags=["gallery"])
 
 @router.get("/", response_model=List[schemas.GalleryResponse])
 def list_galleries(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     service = GalleryService(db)
-    return service.list_galleries(skip=skip, limit=limit)
+    return service.list_galleries()
 
 
 @router.get("/me", response_model=schemas.GalleryResponse)

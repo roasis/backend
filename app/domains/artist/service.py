@@ -50,12 +50,10 @@ class ArtistService:
             .first()
         )
 
-    def list_artists(self, skip: int = 0, limit: int = 100) -> List[models.Artist]:
+    def list_artists(self) -> List[models.Artist]:
         return (
             self.db.query(models.Artist)
             .order_by(models.Artist.created_at.desc())
-            .offset(skip)
-            .limit(limit)
             .all()
         )
 

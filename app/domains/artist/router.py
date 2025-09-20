@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.domains.artist import schemas
@@ -14,16 +14,13 @@ router = APIRouter(prefix="/artists", tags=["artist"])
 
 @router.get("/", response_model=List[schemas.ArtistListResponse])
 def list_artists(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=200),
-    current_wallet: WalletAuth = Depends(get_current_wallet_auth),
     db: Session = Depends(get_db),
 ):
     """
     List all artist profiles
     """
     service = ArtistService(db)
-    return service.list_artists(skip=skip, limit=limit)
+    return service.list_artists()
 
 
 @router.get("/me", response_model=schemas.ArtistResponse)
@@ -49,7 +46,6 @@ def get_my_artist_profile(
 @router.get("/{artist_id}", response_model=schemas.ArtistResponse)
 def get_artist(
     artist_id: int,
-    current_wallet: WalletAuth = Depends(get_current_wallet_auth),
     db: Session = Depends(get_db),
 ):
     """
