@@ -20,6 +20,20 @@ class ArtworkService:
         )
         if not artwork:
             return None
+        # NFT 리스트 직렬화
+        nft_list = []
+        for nft in artwork.nfts:
+            nft_list.append({
+                "id": nft.id,
+                "artwork_id": nft.artwork_id,
+                "uri_hex": nft.uri_hex,
+                "nftoken_id": nft.nftoken_id,
+                "tx_hash": nft.tx_hash,
+                "owner_address": nft.owner_address,
+                "status": nft.status,
+                "price": nft.price,
+                "extra": nft.extra,
+            })
 
         return {
             "id": artwork.id,
@@ -32,6 +46,7 @@ class ArtworkService:
             "metadata_uri_base": artwork.metadata_uri_base,
             "artist_address": artwork.artist_address,
             "created_at": artwork.created_at,
+            "nfts": nft_list,
         }
 
     def get_artwork_by_artist(self, artist_address: str) -> List[dict]:

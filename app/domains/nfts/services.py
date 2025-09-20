@@ -398,7 +398,7 @@ async def register_to_ipfs_and_mint(
         "offer_ids": offer_result["offer_ids"],
         "offer_tx_hashes": offer_result["offer_tx_hashes"],
         "offer_failed": offer_result["failed"],
-        "status": status,
+        "status": status
     }
 
 
