@@ -12,12 +12,12 @@ class Artwork(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    size = Column(String(50), nullable=False)  # 예: "2x2", "3x3"
+    size = Column(String(50), nullable=False)                   # 예: "2x2", "3x3"
     price_usd = Column(Integer, nullable=False)
-    grid_n = Column(Integer, nullable=False)  # 조각 분할 크기
-    image_url = Column(String(500), nullable=False)  # S3/IPFS 저장 URL
-    metadata_uri_base = Column(String(500), nullable=False)  # ex) ipfs://cid/meta.json
-    artist_address = Column(String(128), nullable=False)  # 작가 XRPL 주소
+    grid_n = Column(Integer, nullable=False)                    # 조각 분할 크기
+    image_url = Column(String(500), nullable=False)             # S3/IPFS 저장 URL
+    metadata_uri_base = Column(String(500), nullable=False)     # ex) ipfs://cid/meta.json
+    artist_address = Column(String(128), nullable=False)        # 작가 XRPL 주소
     created_at = Column(DateTime, default=datetime.utcnow)
 
     nfts = relationship("NFT", back_populates="artwork")

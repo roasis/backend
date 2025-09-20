@@ -116,6 +116,14 @@ def _create_nft_offer(
         raise
 
 
+def _build_accept_tx_json(artist_address: str, offer_id: str) -> dict:
+    return {
+        "TransactionType": "NFTokenAcceptOffer",
+        "Account": artist_address,
+        "NFTokenSellOffer": offer_id,
+    }
+
+
 def _sync_xrpl_batch_mint(
     db: Session,
     artwork_id: int,
@@ -783,6 +791,23 @@ async def register_to_ipfs_and_mint(
         else ("partial" if mint_result["minted"] > 0 else "failed")
     )
 
+    #  offer_result 기반으로 accept tx_json 배열 생성
+    accept_txjsons = []
+    for oid in offer_result["offer_ids"]:
+        if oid:  # None 체크
+            accept_txjsons.append(_build_accept_tx_json(artist_address, oid))
+
+    # sell_txjsons 배열 생성
+    # sell_txjsons = []
+    # rows = db.query(NFT).filter(NFT.artwork_id == artwork.id).all()
+    # for r in rows:
+    #     if r.nftoken_id:
+    #         sell_txjsons.append(_build_sell_offer_tx_json(
+    #             artist_address,  # 소유자가 작가
+    #             r.nftoken_id,
+    #             nft_price_usd * 1_000_000  # drops 단위
+    #         ))
+
     return {
         "artwork_id": artwork.id,
         "artist_address": artist_address,
@@ -791,18 +816,20 @@ async def register_to_ipfs_and_mint(
         "metadata_cid": metadata_cid,
         "metadata_uri_base": metadata_uri_base,
         "metadata_http_url": metadata_http_url,
-        "minted": mint_result["minted"],
-        "failed": mint_result["failed"],
-        "tx_hashes": mint_result["tx_hashes"],
-        "nftoken_ids": mint_result["nftoken_ids"],
-        "nft_price_usd": mint_result["nft_price_usd"],
+        # "minted": mint_result["minted"],
+        # "failed": mint_result["failed"],
+        # "tx_hashes": mint_result["tx_hashes"],
+        # "nftoken_ids": mint_result["nftoken_ids"],
+        # "nft_price_usd": mint_result["nft_price_usd"],
+        # "status": status,
+        # "offers_created": offer_result["offers_created"],
+        # "offers_total_considered": offer_result["offers_total_considered"],
+        # "offer_ids": offer_result["offer_ids"],
+        # "offer_tx_hashes": offer_result["offer_tx_hashes"],
+        # "offer_failed": offer_result["failed"],
         "status": status,
-        "offers_created": offer_result["offers_created"],
-        "offers_total_considered": offer_result["offers_total_considered"],
-        "offer_ids": offer_result["offer_ids"],
-        "offer_tx_hashes": offer_result["offer_tx_hashes"],
-        "offer_failed": offer_result["failed"],
-        "status": status
+        "accept_txjsons": accept_txjsons,   # ✅ 프론트에서 지갑으로 넘길 배열
+        # "sell_txjsons": sell_txjsons,
     }
 
 
@@ -813,3 +840,14 @@ def verify_tx(tx_hash: str) -> Dict[str, Any]:
     r = resp.result
     validated = bool(r.get("validated"))
     return {"validated": validated, "tx_json": r if validated else None}
+
+
+def build_buy_offer_txjson(buyer_address: str, nftoken_id: str, amount_drops: int, seller_address: str) -> dict:
+    return {
+        "TransactionType": "NFTokenCreateOffer",
+        "Account": buyer_address,
+        "NFTokenID": nftoken_id,
+        "Amount": str(amount_drops),  # drops 단위
+        "Owner": seller_address,      # 판매자(작가) 주소
+        "Flags": 0                    # 구매 오퍼
+    }
