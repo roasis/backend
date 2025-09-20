@@ -17,6 +17,9 @@ def register_wallet(
     """
     Register a new XRPL wallet
 
+    The message should be a consistent string like:
+    "Register to Roasis with wallet: {wallet_address} at {timestamp}"
+
     **Possible errors:**
     - 401: Invalid wallet signature
     - 409: Wallet already registered
