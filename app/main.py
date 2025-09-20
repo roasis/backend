@@ -1,49 +1,49 @@
-import os
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.shared.database.connection import engine, get_db, Base
-from app.domains.users.router import router as users_router
-
 # Import models for table creation
-import app.core.models
+from app.core import models  # noqa: F401
+from app.core.config import settings
+from app.domains.users.router import router as users_router
+from app.shared.database.connection import Base, engine, get_db
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+
 def create_app() -> FastAPI:
-    app = FastAPI(
+    application = FastAPI(
         title=settings.app_name,
         description=settings.app_description,
-        version=settings.app_version
+        version=settings.app_version,
     )
 
     # Include routers
-    app.include_router(users_router, prefix="/api/v1")
+    application.include_router(users_router, prefix="/api/v1")
 
-    @app.get("/")
-    async def root():
+    @application.get("/")
+    async def root() -> dict[str, str]:
         return {"message": "Welcome to Roasis"}
 
-    @app.get("/health")
-    async def health_check(db: Session = Depends(get_db)):
+    @application.get("/health")
+    async def health_check(db: Session = Depends(get_db)) -> dict[str, str]:
         try:
             # Test database connection
             db.execute("SELECT 1")
             return {
                 "status": "healthy",
                 "environment": settings.node_env,
-                "database": "connected"
+                "database": "connected",
             }
         except Exception as e:
             return {
                 "status": "unhealthy",
                 "environment": settings.node_env,
                 "database": "disconnected",
-                "error": str(e)
+                "error": str(e),
             }
 
-    return app
+    return application
+
 
 app = create_app()

@@ -1,21 +1,26 @@
-from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr
+
 
 class UserBase(BaseModel):
     username: str
     email: EmailStr
 
+
 class UserCreate(UserBase):
     password: str
+
 
 class UserResponse(UserBase):
     id: int
     is_active: bool
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
+
 
 class TransactionBase(BaseModel):
     transaction_hash: str
@@ -23,8 +28,10 @@ class TransactionBase(BaseModel):
     to_address: str
     amount: str
 
+
 class TransactionCreate(TransactionBase):
     pass
+
 
 class TransactionResponse(TransactionBase):
     id: int
@@ -32,6 +39,6 @@ class TransactionResponse(TransactionBase):
     status: str
     created_at: datetime
     confirmed_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
