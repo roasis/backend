@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from xrpl.clients import JsonRpcClient
@@ -7,6 +7,9 @@ from xrpl.models.requests import Tx, LedgerEntry
 from app.core.config import settings
 from app.shared.database.connection import get_db
 from app.domains.nfts.models import NFT
+
+from app.domains.auth.models import WalletAuth
+from app.domains.auth.router import get_current_wallet_auth
 
 router = APIRouter(prefix="/nfts", tags=["NFT Purchase"])
 
@@ -38,8 +41,8 @@ def _get_offer_owner(client: JsonRpcClient, offer_id: str) -> str | None:
 @router.get("/{nft_id}/sell-accept/txjson")
 def get_sell_accept_txjson(
     nft_id: int,
-    buyer_address: str = Query(..., description="구매자 XRPL 주소"),
-    db: Session = Depends(get_db),
+    buyer_address: WalletAuth = Depends(get_current_wallet_auth),
+    db: Session = Depends(get_db)
 ):
     """
     구매자가 직접 서명할 수 있도록 NFTokenAcceptOffer 트랜잭션 JSON 생성.
